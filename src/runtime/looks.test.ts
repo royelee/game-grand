@@ -44,6 +44,13 @@ describe('SpriteModel looks', () => {
     expect(s.sayBubble).toBeNull()
   })
 
+  it('validates secs before mutating the bubble: an invalid duration leaves no permanent bubble', () => {
+    const clock = new Clock()
+    const s = new SpriteModel('Cat', costumes, clock)
+    expect(() => s.say('Hi', 'long')).toThrow(FriendlyError)
+    expect(s.sayBubble).toBeNull()
+  })
+
   it('switches costumes by name and errors helpfully on unknown names', () => {
     const clock = new Clock()
     const s = new SpriteModel('Cat', costumes, clock)

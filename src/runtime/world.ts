@@ -4,6 +4,7 @@ import { StageModel } from './stageModel'
 import { SpriteModel, type Costume } from './spriteModel'
 import { bounds } from './sensing'
 import { FriendlyError, expectString } from './errors'
+import { display } from './display'
 
 export interface WatchEntry {
   name: string
@@ -96,6 +97,8 @@ export class World {
     this.running = false
     this.clock.clearAll()
     this.bus.clear()
+    for (const resolve of this.pendingSounds.values()) resolve()
+    this.pendingSounds.clear()
   }
 
   tick(dt: number): void {
@@ -141,7 +144,7 @@ export class World {
   }
 
   private validateSound(fn: string, name: unknown): string {
-    const n = expectString(fn, `${fn}("meow")`, name)
+    const n = expectString(fn, `${fn}("${this.soundNames[0] ?? 'meow'}")`, name)
     if (!this.soundNames.includes(n)) {
       const names = this.soundNames.map(s => `"${s}"`).join(', ')
       throw new FriendlyError(
@@ -187,7 +190,7 @@ export class World {
         isClone: s.isClone,
       })),
       backdrop: this.stage.backdrops[this.stage.currentBackdrop]?.name ?? null,
-      watches: this.watches.map(w => ({ name: w.name, value: String(w.get()) })),
+      watches: this.watches.map(w => ({ name: w.name, value: display(w.get()) })),
       sounds,
     }
   }

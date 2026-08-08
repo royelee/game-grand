@@ -1,7 +1,7 @@
 import { SpriteModel } from './spriteModel'
 import { World } from './world'
 import { touchingSprites, touchingEdge, distanceBetween } from './sensing'
-import { FriendlyError } from './errors'
+import { FriendlyError, expectNumber } from './errors'
 
 function resolveTarget(
   fn: string,
@@ -56,7 +56,8 @@ export function makeSpriteApi(model: SpriteModel, world: World) {
     setEffect: (name: unknown, value: unknown) => model.setEffect(name, value),
     clearEffects: () => model.clearEffects(),
     goToFront: () => world.goToFront(model),
-    goBack: (n: unknown) => world.goBack(model, typeof n === 'number' ? n : 1),
+    goBack: (n: unknown) =>
+      world.goBack(model, Math.max(0, expectNumber('goBack', 'sprite.goBack(1)', n))),
 
     // sensing
     touching: (target: unknown): boolean => {

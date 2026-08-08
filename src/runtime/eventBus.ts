@@ -11,7 +11,8 @@ export class EventBus {
   }
 
   fire(event: string, ...args: unknown[]): void {
-    for (const h of this.handlers.get(event) ?? []) {
+    // Snapshot so handlers registered mid-fire don't run in this same fire.
+    for (const h of [...(this.handlers.get(event) ?? [])]) {
       try {
         const r = h(...args)
         if (r instanceof Promise) r.catch(err => this.onError(err))

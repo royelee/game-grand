@@ -1,7 +1,8 @@
 import { World } from './world'
 import { makeSpriteApi, type SpriteApi } from './spriteApi'
 import type { SpriteModel } from './spriteModel'
-import { FriendlyError, expectFunction, expectNumber, expectString } from './errors'
+import { expectFunction, expectNumber, expectString } from './errors'
+import { display } from './display'
 
 export interface RunProject {
   mainScript: string
@@ -59,8 +60,7 @@ export class Executor {
   ) {}
 
   private report(tab: string, err: unknown): void {
-    const message =
-      err instanceof FriendlyError ? err.message : err instanceof Error ? err.message : String(err)
+    const message = err instanceof Error ? err.message : String(err)
     this.opts.onIssue({ tab, line: lineFromStack(err), message })
   }
 
@@ -78,9 +78,6 @@ export class Executor {
 
   private buildShared(tab: string, vars: Record<string, unknown>): Record<string, unknown> {
     const w = this.world
-    const on = (event: string) => (fn: unknown) => {
-      w.bus.register(event, this.wrap(tab, expectFunction('on…', 'onStart(() => { ... })', fn)))
-    }
     const g: Record<string, unknown> = {
       vars,
       wait: (secs: unknown) => w.clock.wait(expectNumber('wait', 'wait(1)', secs)),
@@ -128,7 +125,7 @@ export class Executor {
       },
       stopAll: () => w.stopAll(),
       console: {
-        log: (...args: unknown[]) => this.opts.onLog(args.map(a => String(a)).join(' ')),
+        log: (...args: unknown[]) => this.opts.onLog(args.map(display).join(' ')),
       },
     }
     Object.defineProperty(g, 'timer', { get: () => w.timer, enumerable: true })

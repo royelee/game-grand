@@ -117,6 +117,26 @@ describe('World', () => {
     expect(resolved).toBe(true)
     expect(() => w.playSound('bark')).toThrow(/meow/)
   })
+
+  it('stopAll resolves and clears any pending playSoundUntilDone promises', async () => {
+    const w = makeWorld()
+    let resolved = false
+    w.playSoundUntilDone('meow').then(() => { resolved = true })
+    w.stopAll()
+    await Promise.resolve()
+    expect(resolved).toBe(true)
+  })
+
+  it('validateSound builds its example from a real sound in the project', () => {
+    const w = new World({ backdrops: backdrop, soundNames: ['bark', 'meow'] })
+    expect(() => w.playSound(42)).toThrow(/"bark"/)
+  })
+
+  it('watch stringifies arrays/objects as JSON via display()', () => {
+    const w = makeWorld()
+    w.watches.push({ name: 'list', get: () => [1, 2, 3] })
+    expect(w.snapshot().watches).toEqual([{ name: 'list', value: '[1,2,3]' }])
+  })
 })
 
 describe('sprite facade', () => {
@@ -149,5 +169,16 @@ describe('sprite facade', () => {
     expect(api.touching('Cat')).toBe(true)
     expect(clone.isClone).toBe(true)
     expect(() => api.touching('Dog')).toThrow(/edge/)
+  })
+
+  it('facade goBack validates its argument and clamps negative counts to 0', () => {
+    const w = makeWorld()
+    const a = w.addSprite('A', c20)
+    const b = w.addSprite('B', c20)
+    const c = w.addSprite('C', c20)
+    const api = makeSpriteApi(b, w)
+    expect(() => api.goBack('abc')).toThrow(FriendlyError)
+    api.goBack(-5) // clamped to 0: no movement (unclamped, negative n would move b toward the front)
+    expect(w.sprites).toEqual([a, b, c])
   })
 })

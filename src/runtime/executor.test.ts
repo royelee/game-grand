@@ -70,6 +70,12 @@ describe('Executor', () => {
     expect(logs).toEqual(['hi 42'])
   })
 
+  it('console.log formats plain objects/arrays as JSON via display()', () => {
+    const { ex, logs } = setup()
+    ex.run({ mainScript: 'console.log({ a: 1 })', spriteScripts: [] })
+    expect(logs).toEqual(['{"a":1}'])
+  })
+
   it('onKeyPress, timer getter, and wait work end to end', async () => {
     const { world, ex, issues } = setup()
     ex.run({

@@ -140,11 +140,12 @@ export class SpriteModel {
   }
 
   private bubble(kind: 'say' | 'think', text: unknown, secs?: unknown): Promise<void> | void {
+    // Validate before mutating: an invalid `secs` must not leave a permanent bubble behind.
+    const s = secs === undefined ? undefined : expectNumber(kind, `sprite.${kind}("Hi", 2)`, secs)
     const t = String(text ?? '')
     const gen = ++this.bubbleGen
     this.sayBubble = t === '' ? null : { text: t, kind }
-    if (secs === undefined) return
-    const s = expectNumber(kind, `sprite.${kind}("Hi", 2)`, secs)
+    if (s === undefined) return
     return this.clock.wait(s).then(() => {
       if (this.bubbleGen === gen) this.sayBubble = null
     })

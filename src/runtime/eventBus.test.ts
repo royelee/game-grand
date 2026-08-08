@@ -27,6 +27,19 @@ describe('EventBus', () => {
     expect(errors).toHaveLength(2)
   })
 
+  it('does not run handlers registered while the same fire is in progress', () => {
+    const bus = new EventBus()
+    const seen: string[] = []
+    bus.register('go', () => {
+      seen.push('first')
+      bus.register('go', () => seen.push('late'))
+    })
+    bus.fire('go')
+    expect(seen).toEqual(['first'])
+    bus.fire('go')
+    expect(seen).toEqual(['first', 'first', 'late'])
+  })
+
   it('clear removes all handlers', () => {
     const bus = new EventBus()
     let n = 0
