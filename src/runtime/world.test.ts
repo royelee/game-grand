@@ -72,6 +72,29 @@ describe('World', () => {
     expect(w.running).toBe(false)
   })
 
+  it('mouseDown/mouseUp toggle isDown and update position', () => {
+    const w = makeWorld()
+    expect(w.mouse.isDown).toBe(false)
+    w.mouseDown(10, 20)
+    expect(w.mouse).toEqual({ x: 10, y: 20, isDown: true })
+    w.mouseUp()
+    expect(w.mouse).toEqual({ x: 10, y: 20, isDown: false })
+  })
+
+  it('assigns stable, distinct ids to sprites and clones that survive snapshots and reorders', () => {
+    const w = makeWorld()
+    const a = w.addSprite('A', c20)
+    const b = w.addSprite('B', c20)
+    const clone = w.clone(a)
+    expect(new Set([a.id, b.id, clone.id]).size).toBe(3)
+
+    const before = new Set(w.snapshot().sprites.map(s => s.id))
+    w.goToFront(b)
+    const afterSprites = w.snapshot().sprites
+    expect(new Set(afterSprites.map(s => s.id))).toEqual(before)
+    expect(afterSprites[afterSprites.length - 1].id).toBe(b.id)
+  })
+
   it('timer tracks clock time and resets', () => {
     const w = makeWorld()
     w.tick(1.5)
@@ -115,5 +138,16 @@ describe('sprite facade', () => {
     expect(api.distanceTo('mouse')).toBeCloseTo(5)
     api.deleteClone() // original: no-op
     expect(w.sprites).toContain(cat)
+  })
+
+  it('touching(ownName) is false before any clones exist, true once an overlapping clone exists', () => {
+    const w = makeWorld()
+    const cat = w.addSprite('Cat', c20)
+    const api = makeSpriteApi(cat, w)
+    expect(api.touching('Cat')).toBe(false)
+    const clone = w.clone(cat) // clone() copies position, so it overlaps
+    expect(api.touching('Cat')).toBe(true)
+    expect(clone.isClone).toBe(true)
+    expect(() => api.touching('Dog')).toThrow(/edge/)
   })
 })

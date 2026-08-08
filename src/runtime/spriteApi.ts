@@ -66,9 +66,11 @@ export function makeSpriteApi(model: SpriteModel, world: World) {
           s => s.name === target && s !== model && !s.deleted,
         )
         if (others.length === 0) {
-          const names = [...new Set(world.sprites.filter(s => s !== model).map(s => `"${s.name}"`))]
+          // No clones of this sprite exist yet — that's not an error, just "not touching".
+          if (target === model.name) return false
+          const names = [...new Set(world.sprites.map(s => `"${s.name}"`))]
           throw new FriendlyError(
-            `\`touching\` couldn't find "${target}". Try "edge" or a sprite name: ${names.join(', ')}.`,
+            `\`touching\` couldn't find "${target}". Try "edge"${names.length ? ` or a sprite name: ${names.join(', ')}` : ''}.`,
           )
         }
         return others.some(o => touchingSprites(model, o))
