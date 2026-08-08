@@ -67,4 +67,54 @@ describe('SpriteModel motion', () => {
     expect(s.direction).toBe(-90)
     expect(s.x).toBe(230)
   })
+
+  it('setRotationStyle accepts valid styles', () => {
+    const { s } = make()
+    s.setRotationStyle('left-right')
+    expect(s.rotationStyle).toBe('left-right')
+    s.setRotationStyle("don't rotate")
+    expect(s.rotationStyle).toBe("don't rotate")
+    s.setRotationStyle('all around')
+    expect(s.rotationStyle).toBe('all around')
+  })
+
+  it('setRotationStyle throws FriendlyError for invalid style', () => {
+    const { s } = make()
+    expect(() => s.setRotationStyle('spin')).toThrow(FriendlyError)
+    const error = new FriendlyError('')
+    try {
+      s.setRotationStyle('spin')
+    } catch (e) {
+      if (e instanceof FriendlyError) {
+        expect(e.message).toContain('all around')
+        expect(e.message).toContain('left-right')
+        expect(e.message).toContain("don't rotate")
+      }
+    }
+  })
+
+  it('validates all motion setters with FriendlyError', () => {
+    const { s } = make()
+    expect(() => s.turnRight('x' as unknown as number)).toThrow(FriendlyError)
+    expect(() => s.turnLeft('x' as unknown as number)).toThrow(FriendlyError)
+    expect(() => s.goTo('a' as unknown as number, 0)).toThrow(FriendlyError)
+    expect(() => s.goTo(0, 'a' as unknown as number)).toThrow(FriendlyError)
+    expect(() => s.changeX('a' as unknown as number)).toThrow(FriendlyError)
+    expect(() => s.changeY('a' as unknown as number)).toThrow(FriendlyError)
+    expect(() => s.glide('a' as unknown as number, 0, 1)).toThrow(FriendlyError)
+    expect(() => s.glide(0, 'a' as unknown as number, 1)).toThrow(FriendlyError)
+    expect(() => s.glide(0, 0, 'a' as unknown as number)).toThrow(FriendlyError)
+  })
+
+  it('changeX and changeY work on the happy path', () => {
+    const { s } = make()
+    s.changeX(10)
+    expect(s.x).toBe(10)
+    s.changeY(20)
+    expect(s.y).toBe(20)
+    s.changeX(-5)
+    expect(s.x).toBe(5)
+    s.changeY(-10)
+    expect(s.y).toBe(10)
+  })
 })
