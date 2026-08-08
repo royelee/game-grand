@@ -30,6 +30,7 @@ export class SpriteModel {
   currentCostume = 0
   deleted = false
   isClone = false
+  private bubbleGen = 0
 
   constructor(
     public name: string,
@@ -136,11 +137,12 @@ export class SpriteModel {
 
   private bubble(kind: 'say' | 'think', text: unknown, secs?: unknown): Promise<void> | void {
     const t = String(text ?? '')
+    const gen = ++this.bubbleGen
     this.sayBubble = t === '' ? null : { text: t, kind }
     if (secs === undefined) return
     const s = expectNumber(kind, `sprite.${kind}("Hi", 2)`, secs)
     return this.clock.wait(s).then(() => {
-      if (this.sayBubble?.text === t && this.sayBubble.kind === kind) this.sayBubble = null
+      if (this.bubbleGen === gen) this.sayBubble = null
     })
   }
 

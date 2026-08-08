@@ -31,6 +31,19 @@ describe('SpriteModel looks', () => {
     expect(s.sayBubble).toEqual({ text: 'two', kind: 'say' })
   })
 
+  it('a newer bubble with same text is not cleared by an older timer', async () => {
+    const clock = new Clock()
+    const s = new SpriteModel('Cat', costumes, clock)
+    const first = s.say('Hi', 1)
+    const second = s.say('Hi', 5)
+    clock.tick(1.1)
+    await first
+    expect(s.sayBubble).toEqual({ text: 'Hi', kind: 'say' })
+    clock.tick(4.5)
+    await second
+    expect(s.sayBubble).toBeNull()
+  })
+
   it('switches costumes by name and errors helpfully on unknown names', () => {
     const clock = new Clock()
     const s = new SpriteModel('Cat', costumes, clock)
