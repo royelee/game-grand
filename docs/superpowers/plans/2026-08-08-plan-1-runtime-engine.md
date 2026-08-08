@@ -1186,6 +1186,7 @@ describe('sprite facade', () => {
     expect(api.touching('Bat')).toBe(true)
     expect(api.touching('edge')).toBe(false)
     expect(() => api.touching('Dog')).toThrow(/Bat/)
+    expect(() => api.touching('mouse')).toThrow(/edge/) // 'mouse' is not a touching target
     w.mouse.x = 13
     w.mouse.y = 4
     expect(api.distanceTo('mouse')).toBeCloseTo(5)
@@ -1457,7 +1458,14 @@ export function makeSpriteApi(model: SpriteModel, world: World) {
         const others = world.sprites.filter(
           s => s.name === target && s !== model && !s.deleted,
         )
-        if (others.length === 0) resolveTarget('touching', world, model, target) // throws friendly
+        if (others.length === 0) {
+          // Do NOT reuse resolveTarget here: it special-cases 'mouse' and would
+          // return instead of throwing, making touching('mouse') silently false.
+          const names = [...new Set(world.sprites.filter(s => s !== model).map(s => `"${s.name}"`))]
+          throw new FriendlyError(
+            `\`touching\` couldn't find "${target}". Try "edge" or a sprite name: ${names.join(', ')}.`,
+          )
+        }
         return others.some(o => touchingSprites(model, o))
       }
       throw new FriendlyError(
