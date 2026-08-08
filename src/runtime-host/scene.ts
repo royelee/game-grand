@@ -16,6 +16,7 @@ export class StageScene extends Phaser.Scene {
   private backdrop: Phaser.GameObjects.Image | null = null
   private watchText: Phaser.GameObjects.Text | null = null
   private audio = new Map<string, string>()
+  private playing = new Set<HTMLAudioElement>()
 
   constructor(
     private session: RuntimeSession,
@@ -139,7 +140,23 @@ export class StageScene extends Phaser.Scene {
     if (!url) return
     const el = new Audio(url)
     el.volume = Math.min(1, Math.max(0, this.session.world.volume / 100))
-    el.addEventListener('ended', () => this.session.world.soundFinished(id))
-    void el.play().catch(() => this.session.world.soundFinished(id))
+    this.playing.add(el)
+    el.addEventListener('ended', () => {
+      this.playing.delete(el)
+      this.session.world.soundFinished(id)
+    })
+    void el.play().catch(() => {
+      this.playing.delete(el)
+      this.session.world.soundFinished(id)
+    })
+  }
+
+  /** Silence anything still playing — a run must not outlive its stage. */
+  stopSounds(): void {
+    for (const el of this.playing) {
+      el.pause()
+      el.currentTime = 0
+    }
+    this.playing.clear()
   }
 }
