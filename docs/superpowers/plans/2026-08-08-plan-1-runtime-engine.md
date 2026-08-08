@@ -703,6 +703,19 @@ describe('SpriteModel looks', () => {
     expect(s.sayBubble).toEqual({ text: 'two', kind: 'say' })
   })
 
+  it('an older timer does not clear a newer bubble with the same text', async () => {
+    const clock = new Clock()
+    const s = new SpriteModel('Cat', costumes, clock)
+    const first = s.say('Hi', 1)
+    const second = s.say('Hi', 5)
+    clock.tick(1.1)
+    await first
+    expect(s.sayBubble).toEqual({ text: 'Hi', kind: 'say' })
+    clock.tick(4.5)
+    await second
+    expect(s.sayBubble).toBeNull()
+  })
+
   it('switches costumes by name and errors helpfully on unknown names', () => {
     const clock = new Clock()
     const s = new SpriteModel('Cat', costumes, clock)
@@ -752,13 +765,16 @@ Expected: FAIL — `say` not a function / cannot resolve `./stageModel`.
 
 Add to `SpriteModel` in `src/runtime/spriteModel.ts` (import `expectString` too):
 ```ts
+  private bubbleGen = 0
+
   private bubble(kind: 'say' | 'think', text: unknown, secs?: unknown): Promise<void> | void {
+    const gen = ++this.bubbleGen
     const t = String(text ?? '')
     this.sayBubble = t === '' ? null : { text: t, kind }
     if (secs === undefined) return
     const s = expectNumber(kind, `sprite.${kind}("Hi", 2)`, secs)
     return this.clock.wait(s).then(() => {
-      if (this.sayBubble?.text === t && this.sayBubble.kind === kind) this.sayBubble = null
+      if (this.bubbleGen === gen) this.sayBubble = null
     })
   }
 
