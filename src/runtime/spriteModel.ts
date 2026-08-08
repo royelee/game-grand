@@ -1,5 +1,5 @@
 import { Clock } from './clock'
-import { FriendlyError, expectNumber } from './errors'
+import { FriendlyError, expectNumber, expectString } from './errors'
 
 export interface Costume {
   name: string
@@ -132,5 +132,66 @@ export class SpriteModel {
     }
     this.x = Math.min(Math.max(this.x, -R + halfW), R - halfW)
     this.y = Math.min(Math.max(this.y, -T + halfH), T - halfH)
+  }
+
+  private bubble(kind: 'say' | 'think', text: unknown, secs?: unknown): Promise<void> | void {
+    const t = String(text ?? '')
+    this.sayBubble = t === '' ? null : { text: t, kind }
+    if (secs === undefined) return
+    const s = expectNumber(kind, `sprite.${kind}("Hi", 2)`, secs)
+    return this.clock.wait(s).then(() => {
+      if (this.sayBubble?.text === t && this.sayBubble.kind === kind) this.sayBubble = null
+    })
+  }
+
+  say(text: unknown, secs?: unknown): Promise<void> | void {
+    return this.bubble('say', text, secs)
+  }
+
+  think(text: unknown, secs?: unknown): Promise<void> | void {
+    return this.bubble('think', text, secs)
+  }
+
+  switchCostume(name: unknown): void {
+    const n = expectString('switchCostume', 'sprite.switchCostume("cat-a")', name)
+    const idx = this.costumes.findIndex(c => c.name === n)
+    if (idx === -1) {
+      const names = this.costumes.map(c => `"${c.name}"`).join(', ')
+      throw new FriendlyError(
+        `\`switchCostume\` couldn't find a costume called "${n}". This sprite's costumes are: ${names}.`,
+      )
+    }
+    this.currentCostume = idx
+  }
+
+  nextCostume(): void {
+    this.currentCostume = (this.currentCostume + 1) % this.costumes.length
+  }
+
+  setSize(percent: unknown): void {
+    const n = expectNumber('setSize', 'sprite.setSize(150)', percent)
+    this.size = Math.min(500, Math.max(5, n))
+  }
+
+  show(): void {
+    this.visible = true
+  }
+
+  hide(): void {
+    this.visible = false
+  }
+
+  setEffect(name: unknown, value: unknown): void {
+    const known = ['ghost', 'brightness', 'color']
+    if (typeof name !== 'string' || !known.includes(name)) {
+      throw new FriendlyError(
+        `\`setEffect\` knows these effects: ${known.map(k => `"${k}"`).join(', ')} — you gave it ${JSON.stringify(name)}.`,
+      )
+    }
+    this.effects[name] = expectNumber('setEffect', 'sprite.setEffect("ghost", 50)', value)
+  }
+
+  clearEffects(): void {
+    this.effects = {}
   }
 }
