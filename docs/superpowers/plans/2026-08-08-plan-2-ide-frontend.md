@@ -1498,6 +1498,7 @@ export class StageScene extends Phaser.Scene {
   private backdrop: Phaser.GameObjects.Image | null = null
   private watchText: Phaser.GameObjects.Text | null = null
   private audio = new Map<string, string>()
+  private playing = new Set<HTMLAudioElement>()
 
   constructor(
     private session: RuntimeSession,
@@ -1621,8 +1622,26 @@ export class StageScene extends Phaser.Scene {
     if (!url) return
     const el = new Audio(url)
     el.volume = Math.min(1, Math.max(0, this.session.world.volume / 100))
-    el.addEventListener('ended', () => this.session.world.soundFinished(id))
-    void el.play().catch(() => this.session.world.soundFinished(id))
+    this.playing.add(el)
+    const finish = () => {
+      this.playing.delete(el)
+      this.session.world.soundFinished(id)
+    }
+    el.addEventListener('ended', finish)
+    void el.play().catch(finish)
+  }
+
+  /**
+   * Silence anything still playing. Audio elements live outside Phaser's
+   * destroy graph, so without this a sound outlives the run that started it
+   * and bleeds into the next one.
+   */
+  stopSounds(): void {
+    for (const el of this.playing) {
+      el.pause()
+      el.currentTime = 0
+    }
+    this.playing.clear()
   }
 }
 ```
@@ -1638,18 +1657,27 @@ import { RuntimeSession } from './session'
 import { StageScene } from './scene'
 
 let game: Phaser.Game | null = null
+let scene: StageScene | null = null
 
 function post(message: unknown): void {
   parent.postMessage(message, '*')
 }
 
 function startRun(payload: RunPayload): void {
+  scene?.stopSounds()
   game?.destroy(true)
   const session = new RuntimeSession(payload, {
     onIssue: issue => post({ type: 'issue', issue }),
     onLog: text => post({ type: 'log', text }),
-    onStopped: () => post({ type: 'stopped' }),
+    onStopped: () => {
+      scene?.stopSounds()
+      post({ type: 'stopped' })
+    },
   })
+  // Assign `scene` before booting the game: the session's handlers close over
+  // this module variable and may fire as soon as the scene creates.
+  const s = new StageScene(session, payload)
+  scene = s
   game = new Phaser.Game({
     type: Phaser.AUTO,
     width: STAGE_WIDTH,
@@ -1657,7 +1685,7 @@ function startRun(payload: RunPayload): void {
     parent: 'stage',
     backgroundColor: '#ffffff',
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: new StageScene(session, payload),
+    scene: s,
   })
 }
 
@@ -2897,6 +2925,8 @@ Then run `npm run dev` and confirm by hand, reporting what you observed:
    Also click "Backdrop" → pick Night → Run again → the stage background changes.
 5. Break the code (`sprite.move("fast")`) → Run → the console shows `In Cat, line N: \`move\` needs a number…` and the rest of the game keeps running.
 6. Stop → the stage clears; Run again → a fresh start.
+7. Sound lifecycle (verifies the Task 5 fix): add a sound-playing script, Run, then hit Stop while it is still audible — the sound must cut off immediately, and Run again must not overlap two sounds.
+8. Note whether the first sound of a run plays without the user first clicking the stage; browsers may withhold autoplay permission across the iframe boundary. Report what you observe rather than working around it.
 
 - [ ] **Step 7: Commit**
 
