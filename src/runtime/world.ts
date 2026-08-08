@@ -31,6 +31,7 @@ export class World {
   private soundQueue: { id: number; name: string }[] = []
   private pendingSounds = new Map<number, () => void>()
   private timerStart = 0
+  private nextSpriteId = 1
 
   constructor(opts: WorldOptions) {
     this.stage = new StageModel(opts.backdrops)
@@ -39,7 +40,7 @@ export class World {
   }
 
   addSprite(name: string, costumes: Costume[]): SpriteModel {
-    const s = new SpriteModel(name, costumes, this.clock)
+    const s = new SpriteModel(name, costumes, this.clock, this.nextSpriteId++)
     this.sprites.push(s)
     return s
   }
@@ -70,7 +71,7 @@ export class World {
   }
 
   clone(src: SpriteModel): SpriteModel {
-    const c = new SpriteModel(src.name, src.costumes, this.clock)
+    const c = new SpriteModel(src.name, src.costumes, this.clock, this.nextSpriteId++)
     c.x = src.x
     c.y = src.y
     c.direction = src.direction
@@ -115,6 +116,16 @@ export class World {
   mouseMove(x: number, y: number): void {
     this.mouse.x = x
     this.mouse.y = y
+  }
+
+  mouseDown(x: number, y: number): void {
+    this.mouse.x = x
+    this.mouse.y = y
+    this.mouse.isDown = true
+  }
+
+  mouseUp(): void {
+    this.mouse.isDown = false
   }
 
   clickAt(x: number, y: number): void {
@@ -162,6 +173,7 @@ export class World {
     this.soundQueue = []
     return {
       sprites: this.sprites.map(s => ({
+        id: s.id,
         name: s.name,
         x: s.x,
         y: s.y,

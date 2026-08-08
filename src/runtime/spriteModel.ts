@@ -36,6 +36,10 @@ export class SpriteModel {
     public name: string,
     public costumes: Costume[],
     private clock: Clock,
+    // Assigned by World (monotonic counter) so renderers can reconcile a
+    // sprite across snapshots even as clones share names and layer order
+    // mutates. Defaults to 0 for direct construction in tests.
+    public readonly id: number = 0,
   ) {}
 
   halfExtents(): { halfW: number; halfH: number } {
