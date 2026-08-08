@@ -1998,6 +1998,10 @@ git commit -m "feat: API definitions as single source of truth"
 
 ---
 
+## Amendments (post-review)
+
+The executed code deviates from this plan's verbatim blocks where reviews found defects or contract gaps; the code and its tests are the source of truth. Summary of amendments: generation-based bubble timers (Task 5); `touching()` throws its own FriendlyError instead of reusing `resolveTarget`, and returns `false` for the sprite's own name before clones exist (Task 7 + final review); Proxy sandbox around script globals so undeclared assignments don't leak to `globalThis` (final review); `World.mouseDown/mouseUp` + read-only mouse view for scripts; stable `id` on sprites, included in `snapshot()`; `say`/`think` validate before mutating; `stopAll()` resolves pending sounds; `EventBus.fire` iterates a snapshot; facade `goBack` validates; `display()` helper for console/watch output. Parked known issues live in `docs/TODO.md`.
+
 ## Done criteria for Plan 1
 
 - `npm test` passes with tests covering: validators, clock, motion, looks, stage, events, sensing, world (input/clones/layers/sounds/snapshot), executor (happy path, runtime errors with tab+line, syntax errors, async handlers, clones), and API-def coverage.
