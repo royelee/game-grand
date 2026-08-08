@@ -2,7 +2,7 @@ import * as monaco from 'monaco-editor'
 import { loader } from '@monaco-editor/react'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
-import { completionsFor, spriteMemberCompletions } from './completions'
+import { completionsFor, spriteMemberCompletions, stageMemberCompletions } from './completions'
 
 // Bundle Monaco from npm instead of the default CDN loader: the app must work
 // offline and under a strict CSP.
@@ -34,8 +34,12 @@ export function registerGameCompletions(scopeOf: () => 'main' | 'sprite'): void 
         startColumn: word.startColumn,
         endColumn: word.endColumn,
       }
-      const afterSpriteDot = /sprite\.\w*$/.test(line)
-      const items = afterSpriteDot ? spriteMemberCompletions() : completionsFor(scopeOf())
+      const dotted = /(\w+)\s*\.\w*$/.exec(line)
+      const items =
+        dotted?.[1] === 'sprite' ? spriteMemberCompletions()
+        : dotted?.[1] === 'stage' ? stageMemberCompletions()
+        : dotted ? []
+        : completionsFor(scopeOf())
       return {
         suggestions: items.map(item => ({
           label: item.label,
@@ -44,6 +48,9 @@ export function registerGameCompletions(scopeOf: () => 'main' | 'sprite'): void 
               ? monaco.languages.CompletionItemKind.Method
               : monaco.languages.CompletionItemKind.Property,
           insertText: item.insertText,
+          insertTextRules: item.isSnippet
+            ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+            : undefined,
           detail: item.detail,
           documentation: item.documentation,
           range,
