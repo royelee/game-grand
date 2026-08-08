@@ -2153,8 +2153,10 @@ git commit -m "feat: IDE state store and shell layout"
 
 **Interfaces:**
 - Consumes: `API_DEFS` (Plan 1).
-- Produces: `CompletionItem { label: string; insertText: string; detail: string; documentation: string; kind: 'method' | 'property' }`, `completionsFor(scope: 'main' | 'sprite'): CompletionItem[]`, `spriteMemberCompletions(): CompletionItem[]`, `<CodeEditor value onChange tab />`.
-- Two completion sets: typing at top level offers globals (plus `sprite` in sprite tabs); typing after `sprite.` offers the facade members. `insertText` strips the `sprite.`/`stage.` prefix where the prefix is already typed.
+- Produces: `CompletionItem { label; insertText; isSnippet; detail; documentation; kind }`, `paramsOf(signature): string[]`, `completionsFor(scope: 'main' | 'sprite'): CompletionItem[]`, `spriteMemberCompletions()`, `stageMemberCompletions()`, `<CodeEditor value onChange tab />`.
+- Three completion sets: top level offers globals (plus `sprite` in sprite tabs); after `sprite.` the facade members; after `stage.` the stage members. Any other dotted prefix offers nothing rather than misleading globals.
+- **`insertText` is derived from `signature`, never from `example`.** Examples are teaching snippets — multi-line, sometimes wrapped in an `if` or another call — so slicing them yields fragments like `onStart(() => {`. The audience is beginners: an accepted suggestion must always be balanced, runnable code. Handlers (last parameter named `fn`) insert a complete arrow function with the cursor in the body; other calls insert parens with the cursor inside; values insert their bare name.
+- `src/vite-env.d.ts` must be committed with this task — the `?worker` imports do not typecheck without it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2218,29 +2220,50 @@ import { API_DEFS, type ApiDef } from '../shared/apiDefs'
 export interface CompletionItem {
   label: string
   insertText: string
+  isSnippet: boolean
   detail: string
   documentation: string
   kind: 'method' | 'property'
 }
 
-const kindOf = (def: ApiDef): 'method' | 'property' =>
-  def.signature.includes('(') ? 'method' : 'property'
+const isMethod = (def: ApiDef): boolean => def.signature.includes('(')
 
-/** `sprite.move(10)` → `move(10)`; `mouse.x, mouse.y…` → `mouse` */
-function insertTextFor(def: ApiDef, stripPrefix: boolean): string {
-  const example = def.example.split('\n')[0].replace(/^await /, '')
-  if (stripPrefix && example.startsWith('sprite.')) return example.slice('sprite.'.length)
-  if (!stripPrefix && def.name.includes('.')) return def.name.split('.')[0]
-  return example
+/** Parameter names from a signature: `sprite.say(text, seconds?)` → ['text','seconds?'] */
+export function paramsOf(signature: string): string[] {
+  const open = signature.indexOf('(')
+  if (open === -1) return []
+  const inner = signature.slice(open + 1, signature.lastIndexOf(')')).trim()
+  return inner === '' ? [] : inner.split(',').map(p => p.trim())
 }
 
-function toItem(def: ApiDef, stripPrefix: boolean): CompletionItem {
+/**
+ * What accepting a suggestion types for you. Always balanced, runnable code —
+ * a kid must never have to repair what the editor inserted. Handlers get a
+ * complete arrow function with the cursor in the body; other calls get parens
+ * with the cursor inside; values insert their bare name.
+ *
+ * Derived from `signature`, never from `example`: examples are teaching
+ * snippets (multi-line, sometimes wrapped in an `if` or a different call), so
+ * slicing them produces fragments like `onStart(() => {`.
+ */
+function insertFor(identifier: string, def: ApiDef): { insertText: string; isSnippet: boolean } {
+  if (!isMethod(def)) return { insertText: identifier, isSnippet: false }
+  const params = paramsOf(def.signature)
+  if (params.length === 0) return { insertText: `${identifier}()`, isSnippet: false }
+  if (params[params.length - 1] === 'fn') {
+    const lead = params.slice(0, -1).map((_, i) => `"$${i + 1}", `).join('')
+    return { insertText: `${identifier}(${lead}() => {\n  $0\n})`, isSnippet: true }
+  }
+  return { insertText: `${identifier}($0)`, isSnippet: true }
+}
+
+function toItem(identifier: string, def: ApiDef): CompletionItem {
   return {
-    label: stripPrefix ? def.name : def.name.split('.')[0],
-    insertText: insertTextFor(def, stripPrefix),
+    label: identifier,
+    ...insertFor(identifier, def),
     detail: def.signature,
     documentation: def.description,
-    kind: kindOf(def),
+    kind: isMethod(def) ? 'method' : 'property',
   }
 }
 
@@ -2249,15 +2272,30 @@ export function completionsFor(scope: 'main' | 'sprite'): CompletionItem[] {
   const items = new Map<string, CompletionItem>()
   for (const def of API_DEFS) {
     if (def.scope !== 'global') continue
-    const item = toItem(def, false)
-    if (!items.has(item.label)) items.set(item.label, item)
+    if (def.name.includes('.')) {
+      // A namespace like `stage.switchBackdrop`: offer the object itself.
+      const root = def.name.split('.')[0]
+      if (!items.has(root)) {
+        items.set(root, {
+          label: root,
+          insertText: root,
+          isSnippet: false,
+          detail: root,
+          documentation: `The ${root} object. Type ${root}. to see what it can do.`,
+          kind: 'property',
+        })
+      }
+      continue
+    }
+    if (!items.has(def.name)) items.set(def.name, toItem(def.name, def))
   }
   if (scope === 'sprite') {
     items.set('sprite', {
       label: 'sprite',
       insertText: 'sprite',
+      isSnippet: false,
       detail: 'sprite',
-      documentation: 'This sprite. Try sprite.move(10) or sprite.say("Hi").',
+      documentation: 'This sprite. Type sprite. to see what it can do.',
       kind: 'property',
     })
   }
@@ -2266,7 +2304,14 @@ export function completionsFor(scope: 'main' | 'sprite'): CompletionItem[] {
 
 /** Members offered after typing `sprite.` */
 export function spriteMemberCompletions(): CompletionItem[] {
-  return API_DEFS.filter(d => d.scope === 'sprite').map(d => toItem(d, true))
+  return API_DEFS.filter(d => d.scope === 'sprite').map(d => toItem(d.name, d))
+}
+
+/** Members offered after typing `stage.` */
+export function stageMemberCompletions(): CompletionItem[] {
+  return API_DEFS.filter(d => d.name.startsWith('stage.')).map(d =>
+    toItem(d.name.slice('stage.'.length), d),
+  )
 }
 ```
 
@@ -2276,7 +2321,7 @@ import * as monaco from 'monaco-editor'
 import { loader } from '@monaco-editor/react'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
-import { completionsFor, spriteMemberCompletions } from './completions'
+import { completionsFor, spriteMemberCompletions, stageMemberCompletions } from './completions'
 
 // Bundle Monaco from npm instead of the default CDN loader: the app must work
 // offline and under a strict CSP.
@@ -2308,8 +2353,12 @@ export function registerGameCompletions(scopeOf: () => 'main' | 'sprite'): void 
         startColumn: word.startColumn,
         endColumn: word.endColumn,
       }
-      const afterSpriteDot = /sprite\.\w*$/.test(line)
-      const items = afterSpriteDot ? spriteMemberCompletions() : completionsFor(scopeOf())
+      const dotted = /(\w+)\s*\.\w*$/.exec(line)
+      const items =
+        dotted?.[1] === 'sprite' ? spriteMemberCompletions()
+        : dotted?.[1] === 'stage' ? stageMemberCompletions()
+        : dotted ? []
+        : completionsFor(scopeOf())
       return {
         suggestions: items.map(item => ({
           label: item.label,
@@ -2318,6 +2367,9 @@ export function registerGameCompletions(scopeOf: () => 'main' | 'sprite'): void 
               ? monaco.languages.CompletionItemKind.Method
               : monaco.languages.CompletionItemKind.Property,
           insertText: item.insertText,
+          insertTextRules: item.isSnippet
+            ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+            : undefined,
           detail: item.detail,
           documentation: item.documentation,
           range,
