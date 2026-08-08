@@ -1,0 +1,11 @@
+{
+  "entries": [
+    { "id": "cat-a", "kind": "costume", "label": "Cat", "file": "cat-a.svg", "width": 60, "height": 60 },
+    { "id": "cat-b", "kind": "costume", "label": "Cat walking", "file": "cat-b.svg", "width": 60, "height": 60 },
+    { "id": "ball", "kind": "costume", "label": "Ball", "file": "ball.svg", "width": 40, "height": 40 },
+    { "id": "bat", "kind": "costume", "label": "Bat", "file": "bat.svg", "width": 60, "height": 40 },
+    { "id": "star", "kind": "costume", "label": "Star", "file": "star.svg", "width": 40, "height": 40 },
+    { "id": "blue-sky", "kind": "backdrop", "label": "Blue sky", "file": "blue-sky.svg", "width": 480, "height": 360 },
+    { "id": "night", "kind": "backdrop", "label": "Night", "file": "night.svg", "width": 480, "height": 360 }
+  ]
+}
