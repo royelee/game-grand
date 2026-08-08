@@ -649,7 +649,17 @@ git commit -m "feat: project model and run-payload assembly"
 
 **Interfaces:**
 - Consumes: `AssetRef` (Task 2), `LoadedCostume` (Task 1).
-- Produces: `LibraryEntry { id: string; kind: 'costume' | 'backdrop' | 'sound'; label: string; file: string; width: number; height: number }`, `LibraryManifest { entries: LibraryEntry[] }`, `makeResolver(manifest, loaded: Map<string, string>): (ref: AssetRef) => LoadedCostume`, `libraryRefId(source): string | null`, `refsForEntry(entry): AssetRef`, `loadManifest(fetchFn): Promise<LibraryManifest>`, `fetchAsDataUrl(url, fetchFn): Promise<string>`, `preloadLibrary(manifest, fetchFn): Promise<Map<string, string>>`. Task 6 preloads once at startup; Task 9 passes the resolver to `toRunPayload`.
+- Produces: `LibraryEntry { id: string; kind: 'costume' | 'backdrop' | 'sound'; label: string; file: string; width: number; height: number }`, `LibraryManifest { entries: LibraryEntry[] }`, `LoadedAsset { dataUrl: string; width: number; height: number }`, `AssetStore = Map<string, LoadedAsset>` **keyed by `AssetRef.source`**, `makeResolver(store: AssetStore): (ref: AssetRef) => LoadedCostume`, `libraryRefId(source): string | null`, `refsForEntry(entry): AssetRef`, `loadManifest(fetchFn): Promise<LibraryManifest>`, `fetchAsDataUrl(url, fetchFn): Promise<string>`, `preloadLibrary(manifest, fetchFn, toDataUrl): Promise<AssetStore>`. Task 6 preloads once at startup; Task 9 adds uploaded assets to the same store and passes the resolver to `toRunPayload`.
+
+**Why a store instead of dimensions on the ref:** Scratch's own catalogs
+(`scratch-gui/src/lib/libraries/*.json`) give a costume an `assetId`,
+`md5ext`, `dataFormat`, `bitmapResolution`, and rotation centre — and no
+width or height. Scratch decodes the asset to learn its size. Copy that
+separation: **an `AssetRef` identifies an asset; the store describes it.**
+A width cached on a ref can disagree with the file it points at; one that
+lives beside the loaded bytes cannot. This also keeps saved projects small
+and stable for Plan 3. Everything is in the store before Run, so the
+resolver stays synchronous.
 
 The resolver is split from the fetching deliberately: resolution is pure and unit-tested; fetching is one thin adapter.
 
@@ -660,7 +670,7 @@ The resolver is split from the fetching deliberately: resolution is pure and uni
 import { describe, it, expect } from 'vitest'
 import {
   libraryRefId, makeResolver, refsForEntry, loadManifest, preloadLibrary,
-  type LibraryManifest,
+  type AssetStore, type LibraryManifest,
 } from './library'
 
 const manifest: LibraryManifest = {
@@ -669,9 +679,9 @@ const manifest: LibraryManifest = {
     { id: 'blue-sky', kind: 'backdrop', label: 'Blue sky', file: 'blue-sky.svg', width: 480, height: 360 },
   ],
 }
-const loaded = new Map([
-  ['cat-a', 'data:image/svg+xml;base64,AAA'],
-  ['blue-sky', 'data:image/svg+xml;base64,BBB'],
+const store: AssetStore = new Map([
+  ['library:cat-a', { dataUrl: 'data:image/svg+xml;base64,AAA', width: 60, height: 60 }],
+  ['library:blue-sky', { dataUrl: 'data:image/svg+xml;base64,BBB', width: 480, height: 360 }],
 ])
 
 describe('library refs', () => {
@@ -686,23 +696,31 @@ describe('library refs', () => {
 })
 
 describe('resolver', () => {
-  const resolve = makeResolver(manifest, loaded)
-
   it('resolves library refs to dimensions and data urls', () => {
+    const resolve = makeResolver(store)
     expect(resolve({ name: 'cat-a', source: 'library:cat-a' })).toEqual({
       name: 'cat-a', width: 60, height: 60, dataUrl: 'data:image/svg+xml;base64,AAA',
     })
   })
 
-  it('passes data-url refs through, measuring them from the ref itself', () => {
-    const uploaded = { name: 'me', source: 'data:image/png;base64,zzz', width: 32, height: 48 }
-    expect(resolve(uploaded)).toEqual({
+  it('resolves uploaded refs from the same store, keyed by their data url', () => {
+    const withUpload: AssetStore = new Map(store)
+    withUpload.set('data:image/png;base64,zzz', {
+      dataUrl: 'data:image/png;base64,zzz', width: 32, height: 48,
+    })
+    expect(makeResolver(withUpload)({ name: 'me', source: 'data:image/png;base64,zzz' })).toEqual({
       name: 'me', width: 32, height: 48, dataUrl: 'data:image/png;base64,zzz',
     })
   })
 
-  it('throws a clear error for an unknown library id', () => {
-    expect(() => resolve({ name: 'x', source: 'library:nope' })).toThrow(/nope/)
+  it('keeps the ref name, not the library id, so renamed costumes still work', () => {
+    const resolve = makeResolver(store)
+    expect(resolve({ name: 'my-cat', source: 'library:cat-a' }).name).toBe('my-cat')
+  })
+
+  it('throws a clear error for an asset that was never loaded', () => {
+    const resolve = makeResolver(store)
+    expect(() => resolve({ name: 'x', source: 'library:nope' })).toThrow(/library:nope/)
   })
 })
 
@@ -717,15 +735,17 @@ describe('loading', () => {
     await expect(loadManifest(fetchFn)).rejects.toThrow(/404/)
   })
 
-  it('preloads every entry into an id → data-url map', async () => {
+  it('preloads every entry into a store keyed by ref source, carrying dimensions', async () => {
     const fetchFn = async (url: string) => ({
       ok: true,
       blob: async () => url,
     }) as unknown as Response
     const toDataUrl = async (blob: unknown) => `data:fake,${String(blob)}`
-    const map = await preloadLibrary(manifest, fetchFn, toDataUrl)
-    expect(map.get('cat-a')).toBe('data:fake,/library/cat-a.svg')
-    expect(map.size).toBe(2)
+    const loaded = await preloadLibrary(manifest, fetchFn, toDataUrl)
+    expect(loaded.get('library:cat-a')).toEqual({
+      dataUrl: 'data:fake,/library/cat-a.svg', width: 60, height: 60,
+    })
+    expect(loaded.size).toBe(2)
   })
 })
 ```
@@ -755,6 +775,23 @@ export interface LibraryManifest {
   entries: LibraryEntry[]
 }
 
+/** A decoded asset: the bytes plus the size we measured. */
+export interface LoadedAsset {
+  dataUrl: string
+  width: number
+  height: number
+}
+
+/**
+ * Every asset the app has loaded, keyed by `AssetRef.source`
+ * (`library:<id>` or the upload's own data URL).
+ *
+ * Dimensions live here rather than on the AssetRef, following Scratch's own
+ * catalogs: a reference identifies an asset, the loaded asset describes it.
+ * See docs/sprite_libraries.md.
+ */
+export type AssetStore = Map<string, LoadedAsset>
+
 export const LIBRARY_BASE = '/library'
 
 export function libraryRefId(source: string): string | null {
@@ -766,32 +803,23 @@ export function refsForEntry(entry: LibraryEntry): AssetRef {
 }
 
 /**
- * Turns AssetRefs into fully-loaded costumes. Library refs look their
- * dimensions up in the manifest and their bytes up in the preloaded map;
- * uploaded refs already carry both (the upload flow measures the image).
+ * Turns AssetRefs into fully-loaded costumes by looking each ref's source up
+ * in the store. Library assets land there during preload; uploads land there
+ * when the user adds them. Anything not in the store is a bug in the caller,
+ * not a user error — every asset is loaded before a run starts.
  */
-export function makeResolver(
-  manifest: LibraryManifest,
-  loaded: Map<string, string>,
-): (ref: AssetRef) => LoadedCostume {
-  const byId = new Map(manifest.entries.map(e => [e.id, e]))
+export function makeResolver(store: AssetStore): (ref: AssetRef) => LoadedCostume {
   return (ref: AssetRef): LoadedCostume => {
-    const id = libraryRefId(ref.source)
-    if (id === null) {
-      const r = ref as AssetRef & { width?: number; height?: number }
-      return {
-        name: ref.name,
-        width: r.width ?? 0,
-        height: r.height ?? 0,
-        dataUrl: ref.source,
-      }
+    const asset = store.get(ref.source)
+    if (!asset) {
+      throw new Error(`Asset "${ref.source}" has not been loaded.`)
     }
-    const entry = byId.get(id)
-    const dataUrl = loaded.get(id)
-    if (!entry || dataUrl === undefined) {
-      throw new Error(`Library asset "${id}" is missing from the library manifest.`)
+    return {
+      name: ref.name,
+      width: asset.width,
+      height: asset.height,
+      dataUrl: asset.dataUrl,
     }
-    return { name: ref.name, width: entry.width, height: entry.height, dataUrl }
   }
 }
 
@@ -817,11 +845,12 @@ export async function preloadLibrary(
   manifest: LibraryManifest,
   fetchFn: (url: string) => Promise<Response> = fetch,
   toDataUrl: (blob: Blob) => Promise<string> = blobToDataUrl,
-): Promise<Map<string, string>> {
+): Promise<AssetStore> {
   const pairs = await Promise.all(
-    manifest.entries.map(async e =>
-      [e.id, await fetchAsDataUrl(`${LIBRARY_BASE}/${e.file}`, fetchFn, toDataUrl)] as const,
-    ),
+    manifest.entries.map(async e => {
+      const dataUrl = await fetchAsDataUrl(`${LIBRARY_BASE}/${e.file}`, fetchFn, toDataUrl)
+      return [`library:${e.id}`, { dataUrl, width: e.width, height: e.height }] as const
+    }),
   )
   return new Map(pairs)
 }
@@ -2503,8 +2532,8 @@ git commit -m "feat: API reference drawer and console pane"
 
 **Interfaces:**
 - Consumes: everything above.
-- Produces: `measureImage(dataUrl, loadImage): Promise<{ width: number; height: number }>`, `downscale(width, height, maxW, maxH): { width: number; height: number }`, `<LibraryDialog manifest onPick onClose />`; the fully wired `App`.
-- Uploaded costumes are stored as `AssetRef & { width, height }` — the resolver from Task 3 already reads those fields.
+- Produces: `measureImage(dataUrl, loadImage): Promise<{ width: number; height: number }>`, `downscale(width, height, maxW, maxH): { width: number; height: number }`, `readFileAsDataUrl(file): Promise<string>`, `<LibraryDialog manifest store kind onPick onUpload onClose />`; the fully wired `App`.
+- Uploads follow the same path as library assets: decode the file, measure it, put `{ dataUrl, width, height }` into the `AssetStore` keyed by the data URL, then dispatch a plain `AssetRef { name, source: dataUrl }`. The ref never carries dimensions (Task 3's rationale).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2607,18 +2636,18 @@ function domLoadImage(src: string): Promise<HTMLImageElement> {
 
 `src/ide/components/LibraryDialog.tsx`:
 ```tsx
-import type { LibraryEntry, LibraryManifest } from '../library'
+import type { AssetStore, LibraryEntry, LibraryManifest } from '../library'
 
 interface Props {
   manifest: LibraryManifest
-  urls: Map<string, string>
+  store: AssetStore
   kind: 'costume' | 'backdrop'
   onPick: (entry: LibraryEntry) => void
   onUpload: (file: File) => void
   onClose: () => void
 }
 
-export function LibraryDialog({ manifest, urls, kind, onPick, onUpload, onClose }: Props) {
+export function LibraryDialog({ manifest, store, kind, onPick, onUpload, onClose }: Props) {
   const entries = manifest.entries.filter(e => e.kind === kind)
   return (
     <div className="drawer">
@@ -2628,7 +2657,7 @@ export function LibraryDialog({ manifest, urls, kind, onPick, onUpload, onClose 
       </div>
       {entries.map(entry => (
         <div className="api-entry" key={entry.id}>
-          <img src={urls.get(entry.id)} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+          <img src={store.get(`library:${entry.id}`)?.dataUrl} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
           <p>{entry.label}</p>
           <button onClick={() => onPick(entry)}>Use this</button>
         </div>
@@ -2659,7 +2688,7 @@ import { createEmptyProject, toRunPayload, type AssetRef } from '../../shared/pr
 import type { RunPayload } from '../../shared/protocol'
 import {
   loadManifest, makeResolver, preloadLibrary, refsForEntry,
-  type LibraryEntry, type LibraryManifest,
+  type AssetStore, type LibraryEntry, type LibraryManifest,
 } from '../library'
 import { initialState, reducer } from '../store'
 import { measureImage, downscale, readFileAsDataUrl } from '../upload'
@@ -2673,7 +2702,7 @@ import { StagePanel } from './StagePanel'
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState(createEmptyProject()))
   const [manifest, setManifest] = useState<LibraryManifest | null>(null)
-  const [urls, setUrls] = useState<Map<string, string>>(new Map())
+  const [store, setStore] = useState<AssetStore>(new Map())
   const [payload, setPayload] = useState<RunPayload | null>(null)
   const [picking, setPicking] = useState<'costume' | 'backdrop' | null>(null)
   const [showApi, setShowApi] = useState(true)
@@ -2686,7 +2715,7 @@ export function App() {
         const loaded = await preloadLibrary(m)
         if (cancelled) return
         setManifest(m)
-        setUrls(loaded)
+        setStore(prev => new Map([...prev, ...loaded]))
       } catch (err) {
         dispatch({
           type: 'issue',
@@ -2697,18 +2726,11 @@ export function App() {
     return () => { cancelled = true }
   }, [])
 
-  const resolver = useMemo(
-    () => (manifest ? makeResolver(manifest, urls) : null),
-    [manifest, urls],
-  )
+  const resolver = useMemo(() => (manifest ? makeResolver(store) : null), [manifest, store])
 
   const costumeUrl = useCallback(
-    (source: string) => {
-      if (source.startsWith('data:')) return source
-      const id = source.slice('library:'.length)
-      return urls.get(id) ?? ''
-    },
-    [urls],
+    (source: string) => store.get(source)?.dataUrl ?? '',
+    [store],
   )
 
   const onIssue = useCallback(
@@ -2746,11 +2768,9 @@ export function App() {
       const dataUrl = await readFileAsDataUrl(file)
       const natural = await measureImage(dataUrl)
       const size = downscale(natural.width, natural.height)
-      const ref: AssetRef & { width: number; height: number } = {
-        name: file.name.replace(/\.[^.]+$/, ''),
-        source: dataUrl,
-        ...size,
-      }
+      // The store learns the dimensions; the ref stays pure identity.
+      setStore(prev => new Map(prev).set(dataUrl, { dataUrl, ...size }))
+      const ref: AssetRef = { name: file.name.replace(/\.[^.]+$/, ''), source: dataUrl }
       if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
       else dispatch({ type: 'add-sprite', name: ref.name, costumes: [ref] })
       setPicking(null)
@@ -2789,7 +2809,7 @@ export function App() {
         {picking && manifest ? (
           <LibraryDialog
             manifest={manifest}
-            urls={urls}
+            store={store}
             kind={picking}
             onPick={pickFromLibrary}
             onUpload={file => void uploadAsset(file)}

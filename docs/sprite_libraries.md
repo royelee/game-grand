@@ -12,9 +12,39 @@ directly from it.
   [`scratchfoundation/scratch-gui`](https://github.com/scratchfoundation/scratch-gui)
   contains JSON catalogs under `src/lib/libraries/`:
   - [`sprites.json`](https://github.com/scratchfoundation/scratch-gui/blob/develop/src/lib/libraries/sprites.json)
-    — every library sprite with its costumes (name, `md5ext`, bitmap/vector,
-    width/height, rotation center) and attached sounds
+    — every library sprite with its costumes and attached sounds
   - `backdrops.json`, `costumes.json`, `sounds.json` — same shape, per type
+
+  A costume entry looks like this — note what it does **not** contain:
+
+  ```json
+  {
+    "assetId": "809d9b47347a6af2860e7a3a35bce057",
+    "name": "abby-a",
+    "bitmapResolution": 1,
+    "md5ext": "809d9b47347a6af2860e7a3a35bce057.svg",
+    "dataFormat": "svg",
+    "rotationCenterX": 31,
+    "rotationCenterY": 100
+  }
+  ```
+
+  **There is no width/height.** Scratch derives a costume's size by decoding
+  the asset itself at load time, dividing by `bitmapResolution` (a PNG with
+  `bitmapResolution: 2` is retina art that renders at half its pixel size).
+  The catalog entry is pure identity plus rendering metadata.
+
+  The design principle worth copying: **an asset reference identifies an
+  asset; it does not describe it.** Dimensions belong to the loaded asset,
+  not to the reference stored in a project. A reference that carries a
+  cached width can disagree with the file it points at; one that doesn't,
+  can't.
+
+  `rotationCenterX/Y` is the anchor point Scratch rotates and positions a
+  costume around. Our engine assumes centre-anchored costumes, so importing
+  a Scratch costume whose rotation centre is off-centre will position it
+  slightly differently than Scratch does — acceptable for v1, worth
+  remembering if sprites ever look mis-anchored.
 - **Asset files (media):** each catalog entry's `md5ext` (e.g.
   `abc123….svg`) downloads from the Scratch CDN:
   `https://assets.scratch.mit.edu/internalapi/asset/<md5ext>/get/`
@@ -46,10 +76,12 @@ into the codebase's.
    `sounds.json`, picks our curated subset (a couple dozen sprites, ~10
    backdrops, ~10 sounds), and downloads the referenced `md5ext` files from
    the CDN into `public/library/scratch/`.
-2. Emit our own `library.json` in the app's shape: `{ sprites: [{ name,
-   costumes: [{ name, source: "library:<id>", width, height }] }], … }` —
-   the catalogs already carry the costume dimensions the engine's
-   `Costume.width/height` fields need.
+2. Emit our own `library.json` in the app's shape, deriving each entry's
+   `width`/`height` at import time — read them from the SVG header for
+   vectors, or decode the PNG for bitmaps, dividing by `bitmapResolution`.
+   Scratch's catalogs do not carry dimensions (see above), so the import
+   step is where they get computed. Our manifest carries them because we
+   generate it; the engine's `Costume.width/height` reads from there.
 3. Check the downloaded subset into the repo (it is small and versioned) so
    builds don't depend on the Scratch CDN.
 4. Include the attribution + CC BY-SA 4.0 notice in the same directory and in
