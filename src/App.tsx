@@ -1,3 +1,5 @@
+import { App as IdeApp } from './ide/components/App'
+
 export default function App() {
-  return <h1>Game Grand</h1>
+  return <IdeApp />
 }
