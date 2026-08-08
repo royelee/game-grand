@@ -108,6 +108,8 @@ describe('sprite facade', () => {
     expect(api.touching('Bat')).toBe(true)
     expect(api.touching('edge')).toBe(false)
     expect(() => api.touching('Dog')).toThrow(/Bat/)
+    expect(() => api.touching('mouse')).toThrow(FriendlyError)
+    expect(() => api.touching('mouse')).toThrow(/edge/)
     w.mouse.x = 13
     w.mouse.y = 4
     expect(api.distanceTo('mouse')).toBeCloseTo(5)
