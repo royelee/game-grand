@@ -21,6 +21,27 @@ export interface ScriptIssue {
 //   line 4: <user line 1>
 const LINE_OFFSET = 3
 
+// Wraps a script's globals object so that `with (sandbox) { ... }` never lets
+// undeclared assignments (`score = 5`, no `let`/`const`) leak onto the shared
+// realm's globalThis. Reads still fall through to real globals (Math, etc.);
+// writes always land on the per-script object; unknown reads raise a
+// ReferenceError like native JS would.
+function makeSandbox(g: Record<string, unknown>): Record<string, unknown> {
+  return new Proxy(g, {
+    has: () => true,
+    get: (t, k) => {
+      if (k === Symbol.unscopables) return undefined
+      if (k in t) return (t as Record<PropertyKey, unknown>)[k]
+      if (k in globalThis) return (globalThis as Record<PropertyKey, unknown>)[k]
+      throw new ReferenceError(`${String(k)} is not defined`)
+    },
+    set: (t, k, v) => {
+      ;(t as Record<PropertyKey, unknown>)[k] = v
+      return true
+    },
+  })
+}
+
 function lineFromStack(err: unknown): number | null {
   const stack = err instanceof Error ? err.stack ?? '' : ''
   const m = stack.match(/<anonymous>:(\d+):/)
@@ -85,7 +106,12 @@ export class Executor {
         ),
       keyIsDown: (key: unknown) =>
         w.keys.has(expectString('keyIsDown', 'keyIsDown("right")', key)),
-      mouse: w.mouse,
+      // Read-only view: scripts must not be able to mutate world.mouse directly.
+      mouse: {
+        get x() { return w.mouse.x },
+        get y() { return w.mouse.y },
+        get isDown() { return w.mouse.isDown },
+      },
       resetTimer: () => w.resetTimer(),
       stage: {
         switchBackdrop: (name: unknown) => w.stage.switchBackdrop(name),
@@ -124,7 +150,7 @@ export class Executor {
       return
     }
     try {
-      fn(globals)
+      fn(makeSandbox(globals))
     } catch (err) {
       this.report(tab, err)
     }

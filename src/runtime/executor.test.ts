@@ -87,6 +87,44 @@ describe('Executor', () => {
     expect(world.sprites[0].x).toBeCloseTo(1.5)
   })
 
+  it('bare assignment to an undeclared name does not leak onto the shared globalThis', async () => {
+    delete (globalThis as Record<string, unknown>).score
+    const { ex, issues } = setup()
+    ex.run({ mainScript: 'score = 5', spriteScripts: [] })
+    await flush()
+    expect(issues).toEqual([])
+    expect('score' in globalThis).toBe(false)
+    delete (globalThis as Record<string, unknown>).score // defensive cleanup
+  })
+
+  it('built-in globals still resolve through the sandbox', () => {
+    const { world, ex, issues } = setup()
+    ex.run({ mainScript: 'vars.n = Math.floor(1.5)\nwatch("n")', spriteScripts: [] })
+    expect(issues).toEqual([])
+    expect(world.snapshot().watches).toEqual([{ name: 'n', value: '1' }])
+  })
+
+  it('reading a typo\'d undeclared name reports a ReferenceError', () => {
+    const { ex, issues } = setup()
+    ex.run({ mainScript: 'vars.x = totallyUndefinedName', spriteScripts: [] })
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toMatch(/totallyUndefinedName/)
+    expect(issues[0].message).toMatch(/not defined/)
+  })
+
+  it('exposes a read-only mouse view: reads reflect world.mouse, writes do not mutate it', async () => {
+    const { world, ex, issues } = setup()
+    world.mouseDown(7, 8)
+    ex.run({
+      mainScript: 'vars.down = mouse.isDown\nmouse.x = 999\nwatch("down")',
+      spriteScripts: [],
+    })
+    await flush()
+    expect(issues).toEqual([])
+    expect(world.snapshot().watches).toEqual([{ name: 'down', value: 'true' }])
+    expect(world.mouse.x).toBe(7)
+  })
+
   it('onCloneStart receives the clone facade', async () => {
     const { world, ex, issues } = setup()
     ex.run({
