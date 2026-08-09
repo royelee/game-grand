@@ -1,4 +1,4 @@
-import type { Project } from './project'
+import type { Project } from './project.ts'
 
 /**
  * Tab names a sprite may never take — they belong to other parts of the UI.
