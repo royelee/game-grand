@@ -5,7 +5,7 @@ export class FriendlyError extends Error {
   }
 }
 
-function show(value: unknown): string {
+export function show(value: unknown): string {
   if (typeof value === 'string') return `"${value}"`
   if (value === undefined) return 'nothing'
   if (typeof value === 'function') return 'a function'
