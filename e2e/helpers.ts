@@ -17,9 +17,14 @@ export async function chooseBackdrop(page: Page, label: string): Promise<void> {
   await pickFromLibrary(page, label)
 }
 
-/** Click "Use this" on a library card, scoped to the library dialog. */
+/**
+ * Click "Use this" on a built-in library card.
+ *
+ * Scoped to `.library-builtin` rather than the whole dialog: the Scratch
+ * catalog has its own "Cat", so an unscoped match would be ambiguous.
+ */
 export async function pickFromLibrary(page: Page, label: string): Promise<void> {
-  const card = page.locator('.library-dialog .library-entry').filter({ hasText: label })
+  const card = page.locator('.library-dialog .library-builtin .library-entry').filter({ hasText: label })
   await card.getByRole('button', { name: 'Use this' }).first().click()
 }
 

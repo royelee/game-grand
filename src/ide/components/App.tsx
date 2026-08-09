@@ -6,6 +6,9 @@ import {
   loadManifest, makeResolver, preloadLibrary, refsForEntry,
   type AssetStore, type LibraryEntry, type LibraryManifest,
 } from '../library'
+import { loadCatalog, type CatalogItem } from '../catalogSearch'
+import { ScratchAssetLoader, scratchSource } from '../scratchAssets'
+import type { ScratchCatalog } from '../../shared/scratchCatalog'
 import { forgetGame, readRecent, rememberGame } from '../recentGames'
 import { rehydrateAssetStore } from '../rehydrate'
 import { hasUnsavedWork, initialState, reducer } from '../store'
@@ -28,6 +31,8 @@ const startingId = /^\/p\/([A-Za-z0-9_-]{22})$/.exec(window.location.pathname)?.
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState(createEmptyProject()))
   const [manifest, setManifest] = useState<LibraryManifest | null>(null)
+  const [catalog, setCatalog] = useState<ScratchCatalog | null>(null)
+  const loader = useMemo(() => new ScratchAssetLoader(), [])
   const [store, setStore] = useState<AssetStore>(new Map())
   const [payload, setPayload] = useState<RunPayload | null>(null)
   const [picking, setPicking] = useState<'costume' | 'backdrop' | 'sound' | null>(null)
@@ -67,6 +72,15 @@ export function App() {
         const message = err instanceof Error ? err.message : String(err)
         setLibraryError(message)
         dispatch({ type: 'issue', issue: { tab: 'main', line: null, message } })
+      }
+      // The Scratch catalog is a separate, non-fatal load: without it the
+      // dialog still offers the built-in ten and Run still works, so a
+      // failure here must not block the app the way a manifest failure does.
+      try {
+        const c = await loadCatalog()
+        if (!cancelled) setCatalog(c)
+      } catch {
+        if (!cancelled) setCatalog(null)
       }
     })()
     return () => { cancelled = true }
@@ -139,6 +153,41 @@ export function App() {
     } else {
       dispatch({ type: 'add-sprite', name: entry.label.split(' ')[0], costumes: [refsForEntry(entry)] })
     }
+    setPicking(null)
+  }
+
+  /**
+   * Fetches the bytes before touching the project. The store must already hold
+   * every asset a project references — `makeResolver` throws at Run otherwise —
+   * so a failed download has to leave the project completely untouched.
+   */
+  const pickFromScratch = async (item: CatalogItem) => {
+    if ('costumes' in item) {
+      const assets = [
+        ...item.costumes.map(c => ({ md5ext: c.md5ext, res: c.res })),
+        ...item.sounds.map(s => ({ md5ext: s.md5ext, res: 1 })),
+      ]
+      const loaded = await loader.loadMany(assets)
+      setStore(prev => new Map([...prev, ...loaded]))
+      dispatch({
+        type: 'add-sprite',
+        name: item.name,
+        costumes: item.costumes.map(c => ({ name: c.name, source: scratchSource(c.md5ext) })),
+      })
+      for (const s of item.sounds) {
+        dispatch({ type: 'add-sound', ref: { name: s.name, source: scratchSource(s.md5ext) } })
+      }
+      setPicking(null)
+      return
+    }
+
+    const res = 'res' in item ? item.res : 1
+    const loaded = await loader.loadMany([{ md5ext: item.md5ext, res }])
+    setStore(prev => new Map([...prev, ...loaded]))
+    const ref = { name: item.name, source: scratchSource(item.md5ext) }
+    if (picking === 'sound') dispatch({ type: 'add-sound', ref })
+    else if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
+    else dispatch({ type: 'add-sprite', name: item.name, costumes: [ref] })
     setPicking(null)
   }
 
@@ -290,9 +339,12 @@ export function App() {
         {picking && manifest ? (
           <LibraryDialog
             manifest={manifest}
+            catalog={catalog}
             store={store}
+            loader={loader}
             kind={picking}
-            onPick={pickFromLibrary}
+            onPickLocal={pickFromLibrary}
+            onPickScratch={pickFromScratch}
             onUpload={file => void uploadAsset(file)}
             onClose={() => setPicking(null)}
           />

@@ -48,3 +48,19 @@ button.danger { background: #d34b4b; border-color: #b93f3f; color: #fff; }
 .save-error { font-size: 12px; color: #b3261e; }
 .link-warning { flex-basis: 100%; font-size: 12px; color: #8a5a00; }
 .load-dialog h3 { margin-top: 14px; }
+
+/* Wider than a normal drawer: a 320px column gives the grid two cramped
+   columns for 886 costumes. */
+.library-dialog { width: 420px; }
+.library-controls { position: sticky; top: -12px; background: #fff; padding-top: 12px; z-index: 1; }
+.library-tabs button.active,
+.library-chips button.active { background: #1f2937; color: #fff; }
+.library-tabs { display: flex; gap: 4px; margin: 8px 0; }
+.library-search { width: 100%; padding: 6px 8px; margin: 4px 0; }
+.library-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.library-chips button { font-size: 12px; padding: 2px 8px; border-radius: 999px; }
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.library-thumb { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+.library-count, .library-secs, .library-credit { font-size: 12px; color: #6b7280; }
+.library-error { color: #b91c1c; font-size: 13px; }
+.library-offline { font-size: 13px; color: #6b7280; }
