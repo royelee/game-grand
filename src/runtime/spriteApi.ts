@@ -59,6 +59,16 @@ export function makeSpriteApi(model: SpriteModel, world: World) {
     goBack: (n: unknown) =>
       world.goBack(model, Math.max(0, expectNumber('goBack', 'sprite.goBack(1)', n))),
 
+    // pen
+    penDown: () => model.penDown(),
+    penUp: () => model.penUp(),
+    stamp: () => model.stamp(),
+    setPenColor: (color: unknown) => model.setPenColor(color),
+    setPenSize: (n: unknown) => model.setPenSize(n),
+    changePenSize: (n: unknown) => model.changePenSize(n),
+    setPen: (settings: unknown) => model.setPen(settings),
+    changePen: (settings: unknown) => model.changePen(settings),
+
     // sensing
     touching: (target: unknown): boolean => {
       if (target === 'edge') return touchingEdge(model)

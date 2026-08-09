@@ -124,6 +124,7 @@ export class Executor {
         w.watches.push({ name: n, get: () => vars[n] })
       },
       stopAll: () => w.stopAll(),
+      eraseAll: () => w.eraseAll(),
       console: {
         log: (...args: unknown[]) => this.opts.onLog(args.map(display).join(' ')),
       },

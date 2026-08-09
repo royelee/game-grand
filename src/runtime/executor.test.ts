@@ -146,3 +146,50 @@ describe('Executor', () => {
     expect(world.sprites[1].x).toBe(99)
   })
 })
+
+describe('pen', () => {
+  it('a sprite script can draw, and eraseAll is a global', () => {
+    const w = new World({ backdrops: backdrop, soundNames: [] })
+    w.addSprite('Cat', c20)
+    const issues: ScriptIssue[] = []
+    const ex = new Executor(w, { onIssue: i => issues.push(i), onLog: () => {} })
+
+    ex.run({
+      mainScript: 'eraseAll()',
+      spriteScripts: [
+        {
+          name: 'Cat',
+          script: [
+            'sprite.setPenColor("hotpink")',
+            'sprite.setPenSize(4)',
+            'sprite.changePenSize(1)',
+            'sprite.setPen({ transparency: 20 })',
+            'sprite.changePen({ color: 5 })',
+            'sprite.goTo(0, 0)',
+            'sprite.penDown()',
+            'sprite.move(10)',
+            'sprite.penUp()',
+            'sprite.stamp()',
+          ].join('\n'),
+        },
+      ],
+    })
+
+    expect(issues).toEqual([])
+    const kinds = w.snapshot().penOps.map(o => o.kind)
+    expect(kinds).toEqual(['clear', 'dot', 'line', 'stamp'])
+  })
+
+  it('reports a bad pen colour as a friendly issue', () => {
+    const w = new World({ backdrops: backdrop, soundNames: [] })
+    w.addSprite('Cat', c20)
+    const issues: ScriptIssue[] = []
+    const ex = new Executor(w, { onIssue: i => issues.push(i), onLog: () => {} })
+
+    ex.run({ mainScript: '', spriteScripts: [{ name: 'Cat', script: 'sprite.setPenColor("blurple")' }] })
+
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toContain('doesn\'t know the color "blurple"')
+    expect(issues[0].tab).toBe('Cat')
+  })
+})
