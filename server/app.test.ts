@@ -148,6 +148,31 @@ describe('logging', () => {
     expect(lines.some(line => line.includes('/api/projects/[id]'))).toBe(true)
     for (const line of lines) expect(line).not.toContain(id)
   })
+
+  it('never writes a project id to the log for a /p/<id> share link', async () => {
+    // The static-serving path is what actually handles /p/<id> requests, so
+    // this needs a real staticRoot (not staticRoot: null) — that's the gap
+    // that let the raw id leak: the existing test above never exercises this
+    // route at all.
+    const lines: string[] = []
+    const stream = new Writable({
+      write(chunk: Buffer, _enc, callback) {
+        lines.push(chunk.toString())
+        callback()
+      },
+    })
+
+    const logged = buildApp({ store, now: () => clock, logger: { stream }, staticRoot: fakeDist() })
+
+    const { id } = (await logged.inject({ method: 'POST', url: '/api/projects', payload: project() })).json()
+    await logged.inject({ method: 'GET', url: `/p/${id}` })
+    await logged.close()
+
+    expect(id).toBeTruthy()
+    expect(lines.length).toBeGreaterThan(0)
+    expect(lines.some(line => line.includes('/p/[id]'))).toBe(true)
+    for (const line of lines) expect(line).not.toContain(id)
+  })
 })
 
 function fakeDist(): string {

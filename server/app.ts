@@ -30,10 +30,15 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
           serializers: {
             // A project id in a URL is a capability — logging one hands out
             // edit rights to that game. Log the shape of the request, never
-            // the id itself.
+            // the id itself. This has to cover every route shape an id can
+            // appear in: the API (/api/projects/<id>) AND the share link
+            // (/p/<id>) — the latter is the single most common request in
+            // the system, since it fires every time anyone opens a saved game.
             req: (request: { method: string; url: string }) => ({
               method: request.method,
-              url: request.url.replace(/\/api\/projects\/[^/?]+/, '/api/projects/[id]'),
+              url: request.url
+                .replace(/\/api\/projects\/[^/?]+/, '/api/projects/[id]')
+                .replace(/\/p\/[A-Za-z0-9_-]{22}/, '/p/[id]'),
             }),
           },
           ...(typeof options.logger === 'object' ? { stream: options.logger.stream } : {}),
