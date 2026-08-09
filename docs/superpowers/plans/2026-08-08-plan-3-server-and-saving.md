@@ -6,7 +6,7 @@
 
 **Architecture:** One deployable. Fastify serves the built client from `dist/` and exposes three JSON endpoints over a SQLite table. A project is one JSON document, exactly the `Project` shape the IDE already uses. There are no accounts: saving mints a random unguessable id and the edit URL `/p/<id>` is the key. The browser keeps a local list of recently-opened games for convenience only — the link is the source of truth.
 
-**Tech Stack:** Node (runs TypeScript natively — no build step for the server), Fastify, `@fastify/static`, `node:sqlite` (built in — no native module to compile), Vitest, Playwright.
+**Tech Stack:** Node (runs TypeScript natively — no build step for the server), Fastify, `@fastify/static`, `node:sqlite` (built in — no native module to compile; load it via `createRequire`, see Task 2), Vitest, Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-08-08-game-playground-design.md`
 **Builds on:** Plans 1 and 2, merged to `main`. `src/shared/project.ts` defines `Project`; the IDE holds one in a reducer (`src/ide/store.ts`) and never persists it.
@@ -304,8 +304,25 @@ export function newProjectId(): string {
 
 `server/db.ts`:
 ```ts
-import { DatabaseSync } from 'node:sqlite'
+import { createRequire } from 'node:module'
 import { newProjectId } from './ids.ts'
+
+// Loaded through createRequire rather than a static import: Vite (which powers
+// Vitest) strips the `node:` prefix from builtins it doesn't know about and
+// then fails to resolve a bare `sqlite`, which would leave this file
+// untestable. createRequire is not statically analysed, so the same code works
+// under plain Node and under Vitest. Config-level fixes (server.deps.external,
+// resolve.alias) do not help — Vite resolves builtins before they apply.
+const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as {
+  DatabaseSync: new (filename: string) => {
+    exec(sql: string): void
+    prepare(sql: string): {
+      run(...params: unknown[]): { changes: number | bigint }
+      get(...params: unknown[]): unknown
+    }
+    close(): void
+  }
+}
 
 export interface StoredProject {
   id: string
