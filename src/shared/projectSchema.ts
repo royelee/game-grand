@@ -1,4 +1,43 @@
-import type { Project } from './project.ts'
+/**
+ * The project document: its types, and the validation that guards them.
+ *
+ * This module imports NOTHING — not even types. The server loads it directly
+ * under Node's TypeScript type stripping, and `tsc -p tsconfig.server.json`
+ * typechecks it under NodeNext, so any import here would pull the whole client
+ * module graph into the server's build. Editing helpers live in ./project.
+ */
+
+/** A reference to an asset: `library:<id>` for built-ins, `data:` for uploads. */
+export interface AssetRef {
+  name: string
+  source: string
+}
+
+export interface SpriteDef {
+  name: string
+  x: number
+  y: number
+  size: number
+  direction: number
+  visible: boolean
+  costumes: AssetRef[]
+  currentCostume: number
+  script: string
+}
+
+export interface StageDef {
+  backdrops: AssetRef[]
+  currentBackdrop: number
+}
+
+export interface Project {
+  version: 1
+  name: string
+  sprites: SpriteDef[]
+  stage: StageDef
+  sounds: AssetRef[]
+  mainScript: string
+}
 
 /**
  * Tab names a sprite may never take — they belong to other parts of the UI.

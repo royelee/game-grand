@@ -1,38 +1,9 @@
 import type { LoadedCostume, RunPayload } from './protocol'
+import type { Project, AssetRef, SpriteDef } from './projectSchema'
 import { RESERVED_TAB_NAMES } from './projectSchema'
+
+export type { AssetRef, SpriteDef, StageDef, Project } from './projectSchema'
 export { RESERVED_TAB_NAMES }
-
-/** A reference to an asset: `library:<id>` for built-ins, `data:` for uploads. */
-export interface AssetRef {
-  name: string
-  source: string
-}
-
-export interface SpriteDef {
-  name: string
-  x: number
-  y: number
-  size: number
-  direction: number
-  visible: boolean
-  costumes: AssetRef[]
-  currentCostume: number
-  script: string
-}
-
-export interface StageDef {
-  backdrops: AssetRef[]
-  currentBackdrop: number
-}
-
-export interface Project {
-  version: 1
-  name: string
-  sprites: SpriteDef[]
-  stage: StageDef
-  sounds: AssetRef[]
-  mainScript: string
-}
 
 export const DEFAULT_BACKDROP: AssetRef = { name: 'blue-sky', source: 'library:blue-sky' }
 

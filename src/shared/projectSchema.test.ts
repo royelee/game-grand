@@ -141,6 +141,14 @@ describe('validateProject', () => {
   })
 })
 
+describe('module hygiene', () => {
+  it('imports nothing, so the server can typecheck it in isolation', async () => {
+    const { readFileSync } = await import('node:fs')
+    const source = readFileSync(new URL('./projectSchema.ts', import.meta.url), 'utf8')
+    expect(source).not.toMatch(/^\s*import\s/m)
+  })
+})
+
 describe('parseProjectDocument', () => {
   it('parses valid json', () => {
     const result = parseProjectDocument(JSON.stringify(good()))
