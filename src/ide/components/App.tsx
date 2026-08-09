@@ -145,12 +145,13 @@ export function App() {
   }
 
   const handleSave = async () => {
+    const token = state.saveToken
     dispatch({ type: 'saving' })
     try {
       const id = state.projectId
         ? (await saveProject(state.projectId, state.project), state.projectId)
         : await createProject(state.project)
-      dispatch({ type: 'saved', id })
+      dispatch({ type: 'saved', id, token })
       if (!state.projectId) window.history.replaceState(null, '', projectUrl(id))
       rememberGame(window.localStorage, {
         id,
@@ -162,11 +163,25 @@ export function App() {
       dispatch({
         type: 'save-failed',
         message: err instanceof ApiError ? err.message : 'Something went wrong saving your game.',
+        token,
       })
     }
   }
 
   const handleOpen = async (id: string) => {
+    // Loading a project replaces the whole in-memory project with no merge —
+    // if the current one isn't safely on the server yet, confirm first so a
+    // kid can't lose work by tapping "Open" on something in the drawer.
+    const hasUnsavedWork =
+      state.save.status !== 'saved' &&
+      (state.project.sprites.length > 0 || state.project.mainScript !== '')
+    if (
+      hasUnsavedWork &&
+      !window.confirm("Your changes aren't saved yet. Open another game anyway?")
+    ) {
+      return
+    }
+    const token = state.saveToken
     try {
       const project = await loadProject(id)
       dispatch({ type: 'project-loaded', id, project })
@@ -176,6 +191,7 @@ export function App() {
       dispatch({
         type: 'save-failed',
         message: err instanceof ApiError ? err.message : 'Something went wrong opening that game.',
+        token,
       })
     }
   }

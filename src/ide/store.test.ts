@@ -129,14 +129,15 @@ describe('saving', () => {
   it('moves through saving to saved and records the id', () => {
     let s = reducer(withCat(), { type: 'saving' })
     expect(s.save.status).toBe('saving')
-    s = reducer(s, { type: 'saved', id: 'abc123' })
+    s = reducer(s, { type: 'saved', id: 'abc123', token: s.saveToken })
     expect(s.projectId).toBe('abc123')
     expect(s.save).toEqual({ status: 'saved', message: null })
   })
 
   it('keeps the id when a later save fails, and surfaces why', () => {
-    let s = reducer(withCat(), { type: 'saved', id: 'abc123' })
-    s = reducer(s, { type: 'save-failed', message: 'That game is too big to save.' })
+    let s = withCat()
+    s = reducer(s, { type: 'saved', id: 'abc123', token: s.saveToken })
+    s = reducer(s, { type: 'save-failed', message: 'That game is too big to save.', token: s.saveToken })
     expect(s.projectId).toBe('abc123')
     expect(s.save).toEqual({ status: 'error', message: 'That game is too big to save.' })
   })
@@ -152,8 +153,51 @@ describe('saving', () => {
   })
 
   it('an edit after saving returns the state to idle so Save is offered again', () => {
-    let s = reducer(withCat(), { type: 'saved', id: 'abc123' })
+    const before = withCat()
+    let s = reducer(before, { type: 'saved', id: 'abc123', token: before.saveToken })
     s = reducer(s, { type: 'set-script', tab: 'main', script: 'vars.score = 0' })
     expect(s.save.status).toBe('idle')
+  })
+})
+
+describe('save token invalidation', () => {
+  it('ignores a stale save response that arrives after a different game was opened', () => {
+    const loaded = addSprite(createEmptyProject(), 'Bat', [costume])
+    let s = reducer(withCat(), { type: 'saved', id: 'A', token: 0 })
+    s = reducer(s, { type: 'saving' })
+    s = reducer(s, { type: 'project-loaded', id: 'B', project: loaded })
+    s = reducer(s, { type: 'saved', id: 'A', token: 0 })
+    expect(s.projectId).toBe('B')
+    expect(s.project.sprites.map(x => x.name)).toEqual(['Bat'])
+  })
+
+  it('drops a stale save response that arrives after an edit, leaving status idle', () => {
+    let s = reducer(withCat(), { type: 'saved', id: 'abc123', token: 0 })
+    s = reducer(s, { type: 'saving' })
+    const staleToken = s.saveToken
+    s = reducer(s, { type: 'set-script', tab: 'main', script: 'vars.score = 0' })
+    s = reducer(s, { type: 'saved', id: 'abc123', token: staleToken })
+    expect(s.save.status).toBe('idle')
+  })
+
+  it('ignores a stale save-failed and does not disturb a good state', () => {
+    const s = reducer(withCat(), { type: 'saved', id: 'abc123', token: 0 })
+    const after = reducer(s, { type: 'save-failed', message: 'stale error', token: s.saveToken - 1 })
+    expect(after).toEqual(s)
+  })
+
+  it('applies a save response whose token still matches', () => {
+    let s = reducer(withCat(), { type: 'saving' })
+    s = reducer(s, { type: 'saved', id: 'abc123', token: s.saveToken })
+    expect(s.projectId).toBe('abc123')
+    expect(s.save).toEqual({ status: 'saved', message: null })
+  })
+
+  it('project-loaded still yields status saved and bumps the token', () => {
+    const loaded = addSprite(createEmptyProject(), 'Bat', [costume])
+    const before = withCat()
+    const s = reducer(before, { type: 'project-loaded', id: 'xyz', project: loaded })
+    expect(s.save).toEqual({ status: 'saved', message: null })
+    expect(s.saveToken).toBe(before.saveToken + 1)
   })
 })

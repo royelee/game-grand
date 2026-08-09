@@ -17,6 +17,8 @@ export interface IdeState {
   console: ConsoleLine[]
   projectId: string | null
   save: { status: 'idle' | 'saving' | 'saved' | 'error'; message: string | null }
+  /** Bumped whenever an in-flight save goes stale — an edit, or a different game opened. */
+  saveToken: number
 }
 
 export type IdeAction =
@@ -34,8 +36,8 @@ export type IdeAction =
   | { type: 'clear-console' }
   | { type: 'rename-project'; name: string }
   | { type: 'saving' }
-  | { type: 'saved'; id: string }
-  | { type: 'save-failed'; message: string }
+  | { type: 'saved'; id: string; token: number }
+  | { type: 'save-failed'; message: string; token: number }
   | { type: 'project-loaded'; id: string; project: Project }
 
 export function initialState(project: Project, projectId: string | null = null): IdeState {
@@ -47,6 +49,7 @@ export function initialState(project: Project, projectId: string | null = null):
     console: [],
     projectId,
     save: { status: 'idle', message: null },
+    saveToken: 0,
   }
 }
 
@@ -140,9 +143,16 @@ function applyAction(state: IdeState, action: IdeAction): IdeState {
       return { ...state, save: { status: 'saving', message: null } }
 
     case 'saved':
+      if (action.token !== state.saveToken) {
+        // A save that finished after an edit, or after another game was
+        // opened. Never claim the work is safe, and never reattach the old
+        // game's id — that would aim the next Save at the wrong game.
+        return { ...state, save: { status: 'idle', message: null } }
+      }
       return { ...state, projectId: action.id, save: { status: 'saved', message: null } }
 
     case 'save-failed':
+      if (action.token !== state.saveToken) return state
       return { ...state, save: { status: 'error', message: action.message } }
 
     case 'project-loaded':
@@ -167,10 +177,21 @@ const EDITING_ACTIONS = new Set([
   'set-script', 'rename-project',
 ])
 
+/**
+ * Anything that makes an in-flight save's eventual result meaningless: an
+ * edit landed before it finished, or a different game was opened entirely.
+ * Bumping the token here lets `saved`/`save-failed` recognize and discard a
+ * response that arrives after one of these — see the `token` check in
+ * `applyAction`.
+ */
+const INVALIDATES_SAVE = new Set([...EDITING_ACTIONS, 'project-loaded'])
+
 export function reducer(state: IdeState, action: IdeAction): IdeState {
   const next = applyAction(state, action)
-  if (next.save.status === 'saved' && EDITING_ACTIONS.has(action.type)) {
-    return { ...next, save: { status: 'idle', message: null } }
+  if (!INVALIDATES_SAVE.has(action.type)) return next
+  const bumped = { ...next, saveToken: next.saveToken + 1 }
+  if (bumped.save.status === 'saved' && EDITING_ACTIONS.has(action.type)) {
+    return { ...bumped, save: { status: 'idle', message: null } }
   }
-  return next
+  return bumped
 }
