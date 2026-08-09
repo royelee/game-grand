@@ -24,7 +24,7 @@ dev: node_modules ## Run the dev server with hot reload
 	npm run dev -- --port $(DEV_PORT)
 
 prod: build ## Build, then serve the production bundle
-	npm run preview -- --port $(PROD_PORT)
+	npm run preview -- --host --port $(PROD_PORT)
 
 test: test-unit ## Alias for test-unit
 

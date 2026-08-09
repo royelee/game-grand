@@ -21,6 +21,7 @@ Items intentionally left out of v1, to follow up later.
 - [ ] Orphaned sprite scripts (no matching sprite) are silently skipped by `Executor.run()` — consider emitting a ScriptIssue.
 - [ ] `npm audit`: 5 vulns in transitive dev deps (1 critical) at scaffold time — maintenance pass.
 - [ ] Uploaded images are recorded at their downscaled dimensions but the original full-resolution bytes are still sent into the iframe; re-encode on upload to shrink payloads.
+- [ ] Backdrops and sounds are still keyed by name in the Phaser scene (`scene.ts` preload/playSound), the same collision class fixed for costumes: an uploaded backdrop or sound sharing a library asset's name silently wins/loses. Key them by asset identity too.
 - [ ] `searchApi` does not search example text (e.g. searching "beep" won't surface `playSound`).
 - [ ] Some API examples reference sprites a fresh project lacks (`sprite.touching("Bat")`), so Insert-example can throw when run before that sprite exists.
 
