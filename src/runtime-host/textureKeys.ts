@@ -5,6 +5,10 @@ export interface TextureIndex {
   keyForDataUrl: Map<string, string>
   /** sprite name -> costume name -> texture key, for resolving a snapshot's costume name back to art. */
   bySprite: Map<string, Map<string, string>>
+  /** backdrop name -> texture key. */
+  byBackdrop: Map<string, string>
+  /** sound name -> data url. */
+  bySound: Map<string, string>
 }
 
 /**
@@ -37,5 +41,14 @@ export function buildTextureIndex(payload: RunPayload): TextureIndex {
     bySprite.set(sprite.name, costumes)
   }
 
-  return { keyForDataUrl, bySprite }
+  const byBackdrop = new Map<string, string>()
+  for (const backdrop of payload.backdrops) byBackdrop.set(backdrop.name, keyFor(backdrop.dataUrl))
+
+  // Sounds need no Phaser texture — they're played as <Audio> — but they get
+  // the same by-name-to-identity indirection so a name can never resolve to
+  // the wrong bytes.
+  const bySound = new Map<string, string>()
+  for (const sound of payload.sounds) bySound.set(sound.name, sound.dataUrl)
+
+  return { keyForDataUrl, bySprite, byBackdrop, bySound }
 }

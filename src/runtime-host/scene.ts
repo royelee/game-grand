@@ -45,14 +45,16 @@ export class StageScene extends Phaser.Scene {
       }
     }
     for (const b of this.payload.backdrops) {
-      if (!this.textures.exists(b.name)) this.load.image(b.name, b.dataUrl)
+      const key = this.textureIndex.byBackdrop.get(b.name)
+      if (key && !this.textures.exists(key)) this.load.image(key, b.dataUrl)
     }
-    for (const s of this.payload.sounds) this.audio.set(s.name, s.dataUrl)
+    for (const [name, dataUrl] of this.textureIndex.bySound) this.audio.set(name, dataUrl)
   }
 
   create(): void {
+    const startName = this.payload.backdrops[this.payload.currentBackdrop]?.name ?? ''
     this.backdrop = this.add
-      .image(STAGE_WIDTH / 2, STAGE_HEIGHT / 2, this.payload.backdrops[this.payload.currentBackdrop]?.name ?? '')
+      .image(STAGE_WIDTH / 2, STAGE_HEIGHT / 2, this.textureIndex.byBackdrop.get(startName) ?? '')
       .setDepth(-1000)
       .setDisplaySize(STAGE_WIDTH, STAGE_HEIGHT)
 
@@ -98,8 +100,12 @@ export class StageScene extends Phaser.Scene {
     }
     for (const view of update) this.applyView(view)
 
-    if (this.backdrop && snap.backdrop && this.backdrop.texture.key !== snap.backdrop) {
-      this.backdrop.setTexture(snap.backdrop).setDisplaySize(STAGE_WIDTH, STAGE_HEIGHT)
+    // The snapshot names a backdrop; Phaser needs its texture key. Going
+    // straight from name to key would re-introduce the collision buildTextureIndex
+    // exists to prevent, for every switchBackdrop at runtime.
+    const wanted = snap.backdrop ? this.textureIndex.byBackdrop.get(snap.backdrop) : null
+    if (this.backdrop && wanted && this.backdrop.texture.key !== wanted) {
+      this.backdrop.setTexture(wanted).setDisplaySize(STAGE_WIDTH, STAGE_HEIGHT)
     }
     if (this.watchText) {
       this.watchText.setText(snap.watches.map(w => `${w.name}: ${w.value}`).join('\n'))

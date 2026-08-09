@@ -51,3 +51,51 @@ describe('buildTextureIndex', () => {
     expect(index.bySprite.get('Cat')?.get('cat-a')).toBe(index.keyForDataUrl.get('data:library-cat'))
   })
 })
+
+describe('backdrop and sound identity', () => {
+  const payload = {
+    sprites: [],
+    backdrops: [
+      { name: 'sky', width: 480, height: 360, dataUrl: 'data:A' },
+      { name: 'sky2', width: 480, height: 360, dataUrl: 'data:B' },
+    ],
+    currentBackdrop: 0,
+    sounds: [
+      { name: 'Water drop', dataUrl: 'data:C' },
+      { name: 'Water drop2', dataUrl: 'data:D' },
+    ],
+    mainScript: '',
+  } as unknown as RunPayload
+
+  it('gives every distinct backdrop its own texture key', () => {
+    const index = buildTextureIndex(payload)
+    expect(index.byBackdrop.get('sky')).not.toBe(index.byBackdrop.get('sky2'))
+  })
+
+  it('reuses one key for two backdrops sharing the same bytes', () => {
+    const same = {
+      ...payload,
+      backdrops: [
+        { name: 'a', width: 1, height: 1, dataUrl: 'data:A' },
+        { name: 'b', width: 1, height: 1, dataUrl: 'data:A' },
+      ],
+    } as unknown as RunPayload
+    const index = buildTextureIndex(same)
+    expect(index.byBackdrop.get('a')).toBe(index.byBackdrop.get('b'))
+  })
+
+  it('does not let a backdrop key collide with a costume key', () => {
+    const withSprite = {
+      ...payload,
+      sprites: [{ name: 'Cat', costumes: [{ name: 'sky', width: 1, height: 1, dataUrl: 'data:Z' }] }],
+    } as unknown as RunPayload
+    const index = buildTextureIndex(withSprite)
+    expect(index.bySprite.get('Cat')?.get('sky')).not.toBe(index.byBackdrop.get('sky'))
+  })
+
+  it('maps each sound name to its own data url', () => {
+    const index = buildTextureIndex(payload)
+    expect(index.bySound.get('Water drop')).toBe('data:C')
+    expect(index.bySound.get('Water drop2')).toBe('data:D')
+  })
+})
