@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 5174
+// E2E_PREVIEW=1 runs the suite against the production build instead of the
+// dev server — the bundled runtime.html is a genuinely different code path.
+const PREVIEW = !!process.env.E2E_PREVIEW
+const PORT = PREVIEW ? 5175 : 5174
 const BASE_URL = `http://localhost:${PORT}`
 
 export default defineConfig({
@@ -21,9 +24,11 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
+    command: PREVIEW
+      ? `npm run build && npm run preview -- --port ${PORT} --strictPort`
+      : `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 120_000,
   },
 })
