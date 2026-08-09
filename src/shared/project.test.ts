@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   createEmptyProject, addSprite, renameSprite, deleteSprite, setScript,
-  uniqueSpriteName, addBackdrop, toRunPayload, type AssetRef, type Project,
+  uniqueSpriteName, addBackdrop, toRunPayload, RESERVED_TAB_NAMES, type AssetRef, type Project,
 } from './project'
 import type { LoadedCostume } from './protocol'
 
@@ -53,6 +53,18 @@ describe('project model', () => {
   it('rejects renaming onto an existing name', () => {
     const p = addSprite(withCat(), 'Bat', [catCostume])
     expect(() => renameSprite(p, 'Bat', 'Cat')).toThrow(/already/)
+  })
+
+  it('treats reserved tab names as taken when uniquifying a new sprite', () => {
+    const p = createEmptyProject()
+    expect(uniqueSpriteName(p, 'main')).toBe('main2')
+    expect(RESERVED_TAB_NAMES).toContain('main')
+  })
+
+  it('rejects renaming a sprite onto a reserved tab name', () => {
+    const p = withCat()
+    expect(() => renameSprite(p, 'Cat', 'main')).toThrow(/main script/)
+    expect(p.sprites[0].name).toBe('Cat')
   })
 
   it('sets the main script and per-sprite scripts by tab', () => {

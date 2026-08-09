@@ -34,6 +34,9 @@ export interface Project {
 
 export const DEFAULT_BACKDROP: AssetRef = { name: 'blue-sky', source: 'library:blue-sky' }
 
+/** Tab names a sprite may never take — they belong to other parts of the UI. */
+export const RESERVED_TAB_NAMES = ['main']
+
 export function createEmptyProject(): Project {
   return {
     version: 1,
@@ -46,7 +49,7 @@ export function createEmptyProject(): Project {
 }
 
 export function uniqueSpriteName(project: Project, desired: string): string {
-  const taken = new Set(project.sprites.map(s => s.name))
+  const taken = new Set([...project.sprites.map(s => s.name), ...RESERVED_TAB_NAMES])
   if (!taken.has(desired)) return desired
   let n = 2
   while (taken.has(`${desired}${n}`)) n++
@@ -69,6 +72,9 @@ export function addSprite(project: Project, name: string, costumes: AssetRef[]):
 }
 
 export function renameSprite(project: Project, from: string, to: string): Project {
+  if (RESERVED_TAB_NAMES.includes(to)) {
+    throw new Error(`"${to}" is the name of the main script, so a sprite can't use it.`)
+  }
   if (project.sprites.some(s => s.name === to)) {
     throw new Error(`A sprite named "${to}" already exists.`)
   }

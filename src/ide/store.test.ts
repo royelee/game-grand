@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { initialState, reducer } from './store'
+import { initialState, reducer, MAX_CONSOLE_LINES } from './store'
 import { createEmptyProject, addSprite, type AssetRef } from '../shared/project'
 
 const costume: AssetRef = { name: 'cat-a', source: 'library:cat-a' }
@@ -15,6 +15,23 @@ describe('ide reducer', () => {
     let s = reducer(withCat(), { type: 'add-sprite', name: 'Cat', costumes: [costume] })
     expect(s.project.sprites.map(x => x.name)).toEqual(['Cat', 'Cat2'])
     expect(s.selectedTab).toBe('Cat2')
+  })
+
+  it('renames a sprite named after the main tab so it does not collide', () => {
+    const s = reducer(initialState(createEmptyProject()), {
+      type: 'add-sprite', name: 'main', costumes: [costume],
+    })
+    expect(s.project.sprites.map(x => x.name)).toEqual(['main2'])
+    expect(s.selectedTab).toBe('main2')
+  })
+
+  it('rejects renaming a sprite onto the main tab', () => {
+    let s = reducer(withCat(), { type: 'select-tab', tab: 'Cat' })
+    const before = s
+    s = reducer(s, { type: 'rename-sprite', from: 'Cat', to: 'main' })
+    expect(s.project.sprites).toEqual(before.project.sprites)
+    expect(s.selectedTab).toBe('Cat')
+    expect(s.console.at(-1)?.kind).toBe('issue')
   })
 
   it('adds a backdrop without touching the selected tab', () => {
@@ -69,5 +86,24 @@ describe('ide reducer', () => {
     s = reducer(s, { type: 'issue', issue: { tab: 'main', line: null, message: 'bad' } })
     expect(s.console[2].text).toBe('In main: bad')
     expect(reducer(s, { type: 'clear-console' }).console).toEqual([])
+  })
+
+  it('caps console growth, dropping the oldest lines and keeping the newest', () => {
+    let s = withCat()
+    for (let i = 0; i < MAX_CONSOLE_LINES + 10; i++) {
+      s = reducer(s, { type: 'log', text: `line ${i}` })
+    }
+    expect(s.console).toHaveLength(MAX_CONSOLE_LINES)
+    expect(s.console[0].text).toBe('line 10')
+    expect(s.console.at(-1)?.text).toBe(`line ${MAX_CONSOLE_LINES + 9}`)
+  })
+
+  it('caps the console across mixed log and issue lines too', () => {
+    let s = withCat()
+    for (let i = 0; i < MAX_CONSOLE_LINES + 5; i++) {
+      s = reducer(s, { type: 'issue', issue: { tab: 'main', line: null, message: `boom ${i}` } })
+    }
+    expect(s.console).toHaveLength(MAX_CONSOLE_LINES)
+    expect(s.console.at(-1)?.text).toBe(`In main: boom ${MAX_CONSOLE_LINES + 4}`)
   })
 })
