@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   createEmptyProject, addSprite, renameSprite, deleteSprite, setScript,
-  uniqueSpriteName, addBackdrop, toRunPayload, RESERVED_TAB_NAMES, type AssetRef, type Project,
+  uniqueSpriteName, addBackdrop, addSound, toRunPayload, RESERVED_TAB_NAMES,
+  type AssetRef, type Project,
 } from './project'
 import type { LoadedCostume } from './protocol'
 
@@ -95,5 +96,43 @@ describe('project model', () => {
     })
     expect(payload.backdrops[0].dataUrl).toContain('data:')
     expect(payload.sprites[0].script).toBe('')
+  })
+})
+
+describe('unique asset names', () => {
+  it('suffixes a colliding sound name instead of shadowing the first', () => {
+    let p = createEmptyProject()
+    p = addSound(p, { name: 'Water drop', source: 'scratch:a.wav' })
+    p = addSound(p, { name: 'Water drop', source: 'scratch:b.wav' })
+    expect(p.sounds.map(s => s.name)).toEqual(['Water drop', 'Water drop2'])
+  })
+
+  it('still collapses the same asset added twice', () => {
+    let p = createEmptyProject()
+    p = addSound(p, { name: 'pop', source: 'scratch:same.wav' })
+    p = addSound(p, { name: 'pop', source: 'scratch:same.wav' })
+    expect(p.sounds).toHaveLength(1)
+  })
+
+  it('suffixes a colliding backdrop name', () => {
+    let p = createEmptyProject()
+    p = addBackdrop(p, { name: 'blue-sky', source: 'scratch:other.svg' })
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'blue-sky2'])
+  })
+
+  it('still switches to an existing backdrop rather than adding it twice', () => {
+    let p = createEmptyProject()
+    p = addBackdrop(p, { name: 'night', source: 'scratch:n.svg' })
+    p = addBackdrop(p, { name: 'night', source: 'scratch:n.svg' })
+    expect(p.stage.backdrops).toHaveLength(2)
+    expect(p.stage.currentBackdrop).toBe(1)
+  })
+
+  it('de-duplicates costume names within one sprite', () => {
+    const p = addSprite(createEmptyProject(), 'Shark', [
+      { name: 'shark-a', source: 'scratch:1.svg' },
+      { name: 'shark-a', source: 'scratch:2.svg' },
+    ])
+    expect(p.sprites[0].costumes.map(c => c.name)).toEqual(['shark-a', 'shark-a2'])
   })
 })

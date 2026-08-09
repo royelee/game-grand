@@ -26,7 +26,27 @@ export function uniqueSpriteName(project: Project, desired: string): string {
   return `${desired}${n}`
 }
 
+/**
+ * User code addresses costumes, backdrops, and sounds by name —
+ * `playSound("meow")`, `stage.switchBackdrop("night")`. Two assets sharing a
+ * name make that call ambiguous, and the Scratch library is full of real
+ * collisions: `pop` is attached to 197 different sprites, and `Shark 2` alone
+ * carries two distinct sounds both called `Water drop`. Suffix the newcomer
+ * rather than letting one silently shadow the other.
+ */
+export function uniqueAssetName(taken: string[], desired: string): string {
+  const used = new Set(taken)
+  if (!used.has(desired)) return desired
+  let n = 2
+  while (used.has(`${desired}${n}`)) n++
+  return `${desired}${n}`
+}
+
 export function addSprite(project: Project, name: string, costumes: AssetRef[]): Project {
+  const unique: AssetRef[] = []
+  for (const costume of costumes) {
+    unique.push({ ...costume, name: uniqueAssetName(unique.map(c => c.name), costume.name) })
+  }
   const sprite: SpriteDef = {
     name,
     x: 0,
@@ -34,7 +54,7 @@ export function addSprite(project: Project, name: string, costumes: AssetRef[]):
     size: 100,
     direction: 90,
     visible: true,
-    costumes,
+    costumes: unique,
     currentCostume: 0,
     script: '',
   }
@@ -63,13 +83,18 @@ export function addBackdrop(project: Project, ref: AssetRef): Project {
   if (existing !== -1) {
     return { ...project, stage: { ...project.stage, currentBackdrop: existing } }
   }
-  const backdrops = [...project.stage.backdrops, ref]
+  const named = {
+    ...ref,
+    name: uniqueAssetName(project.stage.backdrops.map(b => b.name), ref.name),
+  }
+  const backdrops = [...project.stage.backdrops, named]
   return { ...project, stage: { backdrops, currentBackdrop: backdrops.length - 1 } }
 }
 
 export function addSound(project: Project, ref: AssetRef): Project {
   if (project.sounds.some(s => s.source === ref.source)) return project
-  return { ...project, sounds: [...project.sounds, ref] }
+  const named = { ...ref, name: uniqueAssetName(project.sounds.map(s => s.name), ref.name) }
+  return { ...project, sounds: [...project.sounds, named] }
 }
 
 export function setScript(project: Project, tab: string, script: string): Project {
