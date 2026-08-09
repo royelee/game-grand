@@ -1,5 +1,5 @@
 export type ApiCategory =
-  | 'Motion' | 'Looks' | 'Sound' | 'Events' | 'Sensing' | 'Control' | 'Stage' | 'Variables'
+  | 'Motion' | 'Looks' | 'Pen' | 'Sound' | 'Events' | 'Sensing' | 'Control' | 'Stage' | 'Variables'
 
 export interface ApiDef {
   category: ApiCategory
@@ -39,6 +39,17 @@ export const API_DEFS: ApiDef[] = [
   { category: 'Looks', scope: 'sprite', name: 'clearEffects', signature: 'sprite.clearEffects()', description: 'Remove all visual effects from the sprite.', example: 'sprite.clearEffects()' },
   { category: 'Looks', scope: 'sprite', name: 'goToFront', signature: 'sprite.goToFront()', description: 'Bring the sprite in front of all other sprites.', example: 'sprite.goToFront()' },
   { category: 'Looks', scope: 'sprite', name: 'goBack', signature: 'sprite.goBack(layers)', description: 'Send the sprite backwards behind other sprites.', example: 'sprite.goBack(1)' },
+
+  // Pen
+  { category: 'Pen', scope: 'sprite', name: 'penDown', signature: 'sprite.penDown()', description: 'Put the pen down, so the sprite draws a line everywhere it goes.', example: 'sprite.penDown()' },
+  { category: 'Pen', scope: 'sprite', name: 'penUp', signature: 'sprite.penUp()', description: 'Lift the pen up, so the sprite can move without drawing.', example: 'sprite.penUp()' },
+  { category: 'Pen', scope: 'sprite', name: 'stamp', signature: 'sprite.stamp()', description: 'Print a copy of how the sprite looks right now onto the stage.', example: 'sprite.stamp()' },
+  { category: 'Pen', scope: 'sprite', name: 'setPenColor', signature: 'sprite.setPenColor(color)', description: 'Pick the pen\'s color by name, like "red" or "hotpink", or with a hex code like "#ff0000".', example: 'sprite.setPenColor("hotpink")' },
+  { category: 'Pen', scope: 'sprite', name: 'setPenSize', signature: 'sprite.setPenSize(size)', description: 'Choose how thick the pen draws, from 1 (thin) up to 1200 (enormous).', example: 'sprite.setPenSize(5)' },
+  { category: 'Pen', scope: 'sprite', name: 'changePenSize', signature: 'sprite.changePenSize(amount)', description: 'Make the pen thicker, or thinner with a negative number.', example: 'sprite.changePenSize(2)' },
+  { category: 'Pen', scope: 'sprite', name: 'setPen', signature: 'sprite.setPen({ color, saturation, brightness, transparency })', description: 'Set any of the pen\'s color settings. Each one goes from 0 to 100.', example: 'sprite.setPen({ color: 50, saturation: 80 })' },
+  { category: 'Pen', scope: 'sprite', name: 'changePen', signature: 'sprite.changePen({ color, saturation, brightness, transparency })', description: 'Add to the pen\'s color settings. Changing color a little each time makes a rainbow.', example: 'onUpdate(() => {\n  sprite.move(5)\n  sprite.turnRight(10)\n  sprite.changePen({ color: 2 })\n})' },
+  { category: 'Pen', scope: 'global', name: 'eraseAll', signature: 'eraseAll()', description: 'Wipe everything the pens have drawn or stamped off the stage.', example: 'eraseAll()' },
 
   // Sound
   { category: 'Sound', scope: 'global', name: 'playSound', signature: 'playSound(name)', description: 'Start playing a sound. The code keeps going while it plays.', example: 'playSound("meow")' },

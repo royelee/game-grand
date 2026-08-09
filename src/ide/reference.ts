@@ -1,7 +1,7 @@
 import { API_DEFS, type ApiCategory, type ApiDef } from '../shared/apiDefs'
 
 export const CATEGORY_ORDER: ApiCategory[] = [
-  'Motion', 'Looks', 'Sound', 'Events', 'Sensing', 'Control', 'Stage', 'Variables',
+  'Motion', 'Looks', 'Pen', 'Sound', 'Events', 'Sensing', 'Control', 'Stage', 'Variables',
 ]
 
 export function searchApi(query: string): ApiDef[] {
