@@ -1,5 +1,6 @@
 import fastifyStatic from '@fastify/static'
 import type { FastifyInstance, FastifyReply } from 'fastify'
+import { relative, sep } from 'node:path'
 
 /**
  * Serves the built client.
@@ -18,11 +19,16 @@ export function registerStatic(app: FastifyInstance, options: { root: string }):
     // @fastify/static invokes this with the Fastify Reply object, not a raw
     // Node `res` (despite the option's own name) — its `.header()` is the
     // one that exists here, `.setHeader()` does not.
-    setHeaders(reply: FastifyReply, path: string) {
-      if (path.endsWith('runtime.html')) {
+    setHeaders(reply: FastifyReply, filePath: string) {
+      // Compare against the path relative to the served root: an unanchored
+      // substring test would match a nested file that merely happens to be
+      // named runtime.html, or any file if an ancestor directory is called
+      // "assets".
+      const fromRoot = relative(options.root, filePath)
+      if (fromRoot === 'runtime.html') {
         reply.header('Access-Control-Allow-Origin', '*')
         reply.header('Content-Security-Policy', "frame-ancestors 'self'")
-      } else if (path.includes('/assets/')) {
+      } else if (fromRoot.startsWith(`assets${sep}`)) {
         reply.header('Access-Control-Allow-Origin', '*')
       }
     },
@@ -36,6 +42,14 @@ export function registerStatic(app: FastifyInstance, options: { root: string }):
   app.setNotFoundHandler(async (request, reply) => {
     if (request.url.startsWith('/api/')) {
       return reply.code(404).send({ error: 'That page was not found.' })
+    }
+    // A request that names a file — an asset path, or anything with an
+    // extension — is a genuinely missing file, not a client route. Serving
+    // index.html for those masks a broken bundle reference (e.g. a stale
+    // hashed filename after a redeploy) as a 200 full of HTML.
+    const path = request.url.split('?')[0]
+    if (path.startsWith('/assets/') || /\.[a-zA-Z0-9]+$/.test(path)) {
+      return reply.code(404).send({ error: 'That file was not found.' })
     }
     return reply.sendFile('index.html')
   })

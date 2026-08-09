@@ -135,7 +135,7 @@ describe('logging', () => {
       },
     })
 
-    const logged = buildApp({ store, now: () => clock, logger: { stream } })
+    const logged = buildApp({ store, now: () => clock, logger: { stream }, staticRoot: null })
 
     const { id } = (await logged.inject({ method: 'POST', url: '/api/projects', payload: project() })).json()
     await logged.inject({ method: 'GET', url: `/api/projects/${id}` })
@@ -153,9 +153,15 @@ describe('logging', () => {
 function fakeDist(): string {
   const root = mkdtempSync(join(tmpdir(), 'dist-'))
   mkdirSync(join(root, 'assets'))
+  mkdirSync(join(root, 'library'))
   writeFileSync(join(root, 'index.html'), '<!doctype html><title>IDE</title>')
   writeFileSync(join(root, 'runtime.html'), '<!doctype html><title>Stage</title>')
   writeFileSync(join(root, 'assets', 'runtime-abc.js'), 'console.log(1)')
+  // Decoys for the header-anchoring tests: a nested file that merely happens
+  // to be named runtime.html, and a file whose name merely contains
+  // runtime.html as a substring — neither should get the CORS/CSP headers.
+  writeFileSync(join(root, 'library', 'runtime.html'), '<!doctype html><title>Nested</title>')
+  writeFileSync(join(root, 'my-weird-runtime.html'), '<!doctype html><title>Weird</title>')
   return root
 }
 
@@ -201,5 +207,38 @@ describe('static serving', () => {
     const res = await staticApp.inject({ method: 'GET', url: '/api/nope' })
     expect(res.statusCode).toBe(404)
     expect(res.json().error).toBeTruthy()
+  })
+
+  it('404s a missing asset instead of masking it as the IDE', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/assets/does-not-exist.js' })
+    expect(res.statusCode).toBe(404)
+    expect(res.json().error).toBeTruthy()
+  })
+
+  it('404s any other missing file instead of masking it as the IDE', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/nope.js' })
+    expect(res.statusCode).toBe(404)
+    expect(res.json().error).toBeTruthy()
+  })
+
+  it('does not give a nested file named runtime.html the sandbox headers', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/library/runtime.html' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+    expect(res.headers['content-security-policy']).toBeUndefined()
+  })
+
+  it('does not give a file that merely contains runtime.html the sandbox headers', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/my-weird-runtime.html' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+    expect(res.headers['content-security-policy']).toBeUndefined()
+  })
+
+  it('still gives the real root runtime.html both headers', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/runtime.html' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBe('*')
+    expect(res.headers['content-security-policy']).toBe("frame-ancestors 'self'")
   })
 })
