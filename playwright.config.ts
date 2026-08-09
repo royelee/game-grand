@@ -2,8 +2,11 @@ import { defineConfig, devices } from '@playwright/test'
 
 // E2E_PREVIEW=1 runs the suite against the production build instead of the
 // dev server — the bundled runtime.html is a genuinely different code path.
+// E2E_SERVER=1 runs it against the real Fastify server (the configuration
+// users get), with save/load exercised against a disposable SQLite file.
+const SERVER = !!process.env.E2E_SERVER
 const PREVIEW = !!process.env.E2E_PREVIEW
-const PORT = PREVIEW ? 5175 : 5174
+const PORT = SERVER ? 5176 : PREVIEW ? 5175 : 5174
 const BASE_URL = `http://localhost:${PORT}`
 
 export default defineConfig({
@@ -24,9 +27,11 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: PREVIEW
-      ? `npm run build && npm run preview -- --port ${PORT} --strictPort`
-      : `npm run dev -- --port ${PORT} --strictPort`,
+    command: SERVER
+      ? `npm run build && DB_FILE=.e2e-projects.db PORT=${PORT} npm run server`
+      : PREVIEW
+        ? `npm run build && npm run preview -- --port ${PORT} --strictPort`
+        : `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

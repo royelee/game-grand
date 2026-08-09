@@ -136,9 +136,10 @@ One JSON document per project — same shape in transit, in SQLite, and in any f
 ## Testing
 
 - **Vitest** unit tests for the API wrapper — the core surface: timing (`glide` resolves after its duration), sensing (`touching` detects overlap), validation (friendly messages) — using Phaser's headless mode.
-- **Vitest** tests for server endpoints against in-memory SQLite.
+- **Vitest** tests for server endpoints (`server/app.test.ts`) against in-memory SQLite: id generation, the store, project validation and the size cap, all three endpoints including 400/404/413, static serving with both required headers and the SPA fallback.
 - Light component tests for the React shell only where logic lives (save flow, tab switching).
 - **Playwright end-to-end** (`e2e/`): drives the real IDE in Chromium — add a sprite, edit code, Run, assert on stage/console, Stop, clones, sounds, backdrops, library-failure recovery. This layer caught bugs the unit tests structurally could not (the sandboxed iframe's CORS failure, unrunnable `await` examples).
+- The e2e suite runs in three modes (`playwright.config.ts`): against the Vite dev server (default), the production preview build (`E2E_PREVIEW=1`), and the real Fastify server (`E2E_SERVER=1`, `npm run test:e2e:server` / `make test-e2e-server`) — the last builds the client, runs `server/index.ts` with `DB_FILE` pointed at a disposable SQLite file, and is the only mode that exercises the actual save/load round trip: `e2e/save-load.spec.ts` saves a game, opens its link in a fresh browser context to prove the link (not local storage) carries it, and covers updating an existing save, the on-device recent-games list, an unknown link's 404, and pasting a link into the Load dialog. All three modes run the same 22 core IDE tests plus, in server mode, the 5 save/load tests.
 
 ## Phasing
 

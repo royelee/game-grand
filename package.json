@@ -12,6 +12,7 @@
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
     "test:e2e:preview": "E2E_PREVIEW=1 playwright test",
+    "test:e2e:server": "E2E_SERVER=1 playwright test",
     "server": "node server/index.ts",
     "server:dev": "node --watch server/index.ts",
     "typecheck:server": "tsc -p tsconfig.server.json"

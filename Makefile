@@ -3,7 +3,7 @@
 DEV_PORT  ?= 5173
 PROD_PORT ?= 4173
 
-.PHONY: help install build dev prod test test-unit test-e2e test-e2e-prod test-all clean server server-dev
+.PHONY: help install build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -37,7 +37,10 @@ test-e2e: node_modules ## Run Playwright against the dev server
 test-e2e-prod: node_modules ## Run Playwright against the production build
 	E2E_PREVIEW=1 npx playwright test
 
-test-all: test-unit test-e2e test-e2e-prod ## Run every suite
+test-e2e-server: node_modules ## Run Playwright against the real Fastify server
+	E2E_SERVER=1 npx playwright test
+
+test-all: test-unit test-e2e test-e2e-prod test-e2e-server ## Run every suite
 
 server: build ## Build the client, then run the server on PORT (default 8080)
 	npm run server
