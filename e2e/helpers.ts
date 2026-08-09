@@ -85,3 +85,38 @@ export async function stop(page: Page): Promise<void> {
 export function consoleLines(page: Page) {
   return page.locator('.console > div')
 }
+
+/** A minimal valid 1x1 transparent PNG, for exercising the upload-as-costume path. */
+export function tinyPngBuffer(): Buffer {
+  const base64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+  return Buffer.from(base64, 'base64')
+}
+
+/**
+ * A minimal valid mono 16-bit PCM WAV, for exercising the upload-as-sound
+ * path. Built the same way scripts/make-starter-sounds.mjs builds the
+ * shipped library sounds, just shorter.
+ */
+export function tinyWavBuffer(): Buffer {
+  const rate = 8000
+  const samples = Array.from({ length: 400 }, (_, i) => Math.sin((2 * Math.PI * 440 * i) / rate) * 0.3)
+  const data = Buffer.alloc(samples.length * 2)
+  samples.forEach((s, i) => data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, s)) * 32767), i * 2))
+
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + data.length, 4)
+  header.write('WAVE', 8)
+  header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20) // PCM
+  header.writeUInt16LE(1, 22) // mono
+  header.writeUInt32LE(rate, 24)
+  header.writeUInt32LE(rate * 2, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(data.length, 40)
+  return Buffer.concat([header, data])
+}

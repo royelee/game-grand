@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import {
   addSpriteFromLibrary, chooseBackdrop, consoleLines, pickFromLibrary, run,
-  selectTab, setEditorContent, stage, stop, waitForLibrary,
+  selectTab, setEditorContent, stage, stop, tinyPngBuffer, tinyWavBuffer, waitForLibrary,
 } from './helpers'
 
 test.beforeEach(async ({ page }) => {
@@ -26,6 +26,25 @@ test('adds a sprite from the library, giving it a tab and a thumbnail', async ({
   await expect(thumb).toHaveAttribute('src', /^data:image\/svg\+xml/)
   await expect(page.locator('.tab')).toHaveText(['main', 'Cat'])
   await expect(page.locator('.tab.active')).toHaveText('Cat')
+})
+
+test('uploads an image as a sprite costume, and the game runs with it', async ({ page }) => {
+  await page.getByRole('button', { name: '+ Add sprite' }).click()
+  await page.locator('.library-dialog input[type="file"]').setInputFiles({
+    name: 'rocket.png',
+    mimeType: 'image/png',
+    buffer: tinyPngBuffer(),
+  })
+
+  await expect(page.locator('.library-dialog')).toHaveCount(0)
+  await expect(page.locator('.sprite-row')).toHaveCount(1)
+  await expect(page.locator('.sprite-row')).toContainText('rocket')
+  await expect(page.locator('.sprite-row img')).toHaveAttribute('src', /^data:image\/png/)
+  await expect(page.locator('.tab.active')).toHaveText('rocket')
+
+  await run(page)
+  await expect(stage(page).locator('canvas')).toBeVisible()
+  await expect(page.locator('.console .issue')).toHaveCount(0)
 })
 
 test('runs a game: the stage mounts, the script executes, and logs reach the console', async ({ page }) => {
@@ -220,6 +239,23 @@ test('a sound can be added from the library and played by a script', async ({ pa
   await pickFromLibrary(page, 'Beep')
 
   await setEditorContent(page, 'onStart(() => playSound("beep"))')
+  await run(page)
+
+  await expect(stage(page).locator('canvas')).toBeVisible()
+  await expect(page.locator('.console .issue')).toHaveCount(0)
+})
+
+test('uploads an audio file as a sound, and a script can play it with no error', async ({ page }) => {
+  await addSpriteFromLibrary(page, 'Cat')
+  await page.getByRole('button', { name: 'Sounds' }).click()
+  await page.locator('.library-dialog input[type="file"]').setInputFiles({
+    name: 'honk.wav',
+    mimeType: 'audio/wav',
+    buffer: tinyWavBuffer(),
+  })
+  await expect(page.locator('.library-dialog')).toHaveCount(0)
+
+  await setEditorContent(page, 'onStart(() => playSound("honk"))')
   await run(page)
 
   await expect(stage(page).locator('canvas')).toBeVisible()
