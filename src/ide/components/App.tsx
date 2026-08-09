@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { createEmptyProject, toRunPayload, type AssetRef } from '../../shared/project'
 import type { RunPayload } from '../../shared/protocol'
 import { ApiError, createProject, loadProject, projectUrl, saveProject } from '../api'
@@ -7,6 +7,7 @@ import {
   type AssetStore, type LibraryEntry, type LibraryManifest,
 } from '../library'
 import { forgetGame, readRecent, rememberGame } from '../recentGames'
+import { rehydrateAssetStore } from '../rehydrate'
 import { hasUnsavedWork, initialState, reducer } from '../store'
 import { measureImage, downscale, readFileAsDataUrl } from '../upload'
 import { ApiDrawer } from './ApiDrawer'
@@ -38,6 +39,19 @@ export function App() {
   const [loadOpen, setLoadOpen] = useState(false)
   const [recent, setRecent] = useState(() => readRecent(window.localStorage))
 
+  // The reducer already discards a stale `saved`/`save-failed` response via
+  // the token (an edit, or a different game opened, bumps it before the
+  // response lands), but `handleSave`'s success side effects — rewriting the
+  // address bar and remembering the game — happen outside the reducer, so
+  // they need their own look at whether the token is still current. A plain
+  // read of `state.saveToken` inside the async handler would close over the
+  // value from when the save started, which is exactly the stale one; this
+  // ref always holds the latest.
+  const latestSaveToken = useRef(state.saveToken)
+  useEffect(() => {
+    latestSaveToken.current = state.saveToken
+  }, [state.saveToken])
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -65,7 +79,17 @@ export function App() {
       try {
         const project = await loadProject(startingId)
         if (cancelled) return
+        // Uploaded assets carry their bytes in the project itself, but their
+        // dimensions only ever lived in this (empty, freshly-mounted) store —
+        // without this, Run throws on the first uploaded costume it needs.
+        const { additions, issues } = await rehydrateAssetStore(project)
+        if (cancelled) return
+        if (additions.size > 0) setStore(prev => new Map([...prev, ...additions]))
         dispatch({ type: 'project-loaded', id: startingId, project })
+        // project-loaded clears the console, so these must be dispatched after it.
+        for (const issue of issues) {
+          dispatch({ type: 'issue', issue: { tab: 'main', line: null, message: issue.message } })
+        }
       } catch (err) {
         if (cancelled) return
         const message =
@@ -152,13 +176,19 @@ export function App() {
         ? (await saveProject(state.projectId, state.project), state.projectId)
         : await createProject(state.project)
       dispatch({ type: 'saved', id, token })
-      if (!state.projectId) window.history.replaceState(null, '', projectUrl(id))
-      rememberGame(window.localStorage, {
-        id,
-        name: state.project.name,
-        savedAt: Date.now(),
-      })
-      setRecent(readRecent(window.localStorage))
+      // A stale response: something invalidated this save (an edit, or a
+      // different game opened) while the request was in flight. Touching the
+      // address bar or the recent-games list now would point them at a game
+      // that isn't the one on screen — see F3 in the review notes.
+      if (token === latestSaveToken.current) {
+        if (!state.projectId) window.history.replaceState(null, '', projectUrl(id))
+        rememberGame(window.localStorage, {
+          id,
+          name: state.project.name,
+          savedAt: Date.now(),
+        })
+        setRecent(readRecent(window.localStorage))
+      }
     } catch (err) {
       dispatch({
         type: 'save-failed',
@@ -181,7 +211,15 @@ export function App() {
     const token = state.saveToken
     try {
       const project = await loadProject(id)
+      // Same rehydration as the /p/<id> mount path — this project may carry
+      // uploaded assets this browser session has never seen.
+      const { additions, issues } = await rehydrateAssetStore(project)
+      if (additions.size > 0) setStore(prev => new Map([...prev, ...additions]))
       dispatch({ type: 'project-loaded', id, project })
+      // project-loaded clears the console, so these must be dispatched after it.
+      for (const issue of issues) {
+        dispatch({ type: 'issue', issue: { tab: 'main', line: null, message: issue.message } })
+      }
       window.history.pushState(null, '', projectUrl(id))
       setLoadOpen(false)
     } catch (err) {

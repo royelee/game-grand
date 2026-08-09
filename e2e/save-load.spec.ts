@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
-  addSpriteFromLibrary, consoleLines, editorText, run, setEditorContent, waitForLibrary,
+  addSpriteFromLibrary, consoleLines, editorText, run, setEditorContent, stage, tinyPngBuffer, waitForLibrary,
 } from './helpers'
 
 test.skip(!process.env.E2E_SERVER, 'Saving needs the real server (run with E2E_SERVER=1)')
@@ -65,6 +65,38 @@ test('saves a game and reopens it from its link', async ({ page }) => {
   await expect(other.getByLabel('Game name')).toHaveValue('Cat Chase')
   await other.getByRole('button', { name: '▶ Run' }).click()
   await expect(other.locator('.console > div')).toContainText(['saved cat ran'])
+  await fresh.close()
+})
+
+test('an uploaded costume survives a save and reopens in a fresh browser, ready to run', async ({ page }) => {
+  // Uploaded assets carry their dimensions only in the in-memory AssetStore,
+  // seeded at upload time — never in the saved project document itself. A
+  // fresh browser context has no memory of that upload, so this is the only
+  // way to catch a resolver that assumes the store is already populated.
+  await page.getByRole('button', { name: '+ Add sprite' }).click()
+  await page.locator('.library-dialog input[type="file"]').setInputFiles({
+    name: 'rocket.png',
+    mimeType: 'image/png',
+    buffer: tinyPngBuffer(),
+  })
+  await expect(page.locator('.sprite-row')).toContainText('rocket')
+
+  await page.getByLabel('Game name').fill('Uploaded Rocket')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.save-status')).toHaveText('Saved')
+  const link = page.url()
+
+  const fresh = await page.context().browser()!.newContext()
+  const other = await fresh.newPage()
+  await other.goto(link)
+  await waitForLibrary(other)
+
+  await expect(other.locator('.sprite-row')).toContainText('rocket')
+  await expect(other.locator('.sprite-row img')).toHaveAttribute('src', /^data:image\/png/)
+
+  await other.getByRole('button', { name: '▶ Run' }).click()
+  await expect(stage(other).locator('canvas')).toBeVisible()
+  await expect(other.locator('.console .issue')).toHaveCount(0)
   await fresh.close()
 })
 
@@ -181,4 +213,51 @@ test('opening another game does not prompt when there is nothing unsaved', async
   await expect(page.getByLabel('Game name')).toHaveValue('Game B')
   await expect(page).toHaveURL(urlB)
   expect(dialogMessages).toEqual([])
+})
+
+test('a stale create never rewrites the address bar or remembers the wrong game', async ({ page }) => {
+  // A real second game to switch to, saved normally before any delay is introduced.
+  await addSpriteFromLibrary(page, 'Ball')
+  await page.getByLabel('Game name').fill('Game B')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.save-status')).toHaveText('Saved')
+  const linkB = page.url()
+
+  // A fresh, never-saved project — its create is the one that will be
+  // delayed to resolve after Game B has already been opened.
+  await page.goto('/')
+  await waitForLibrary(page)
+  await addSpriteFromLibrary(page, 'Cat')
+  await page.getByLabel('Game name').fill('Game A')
+
+  await page.route('**/api/projects', async route => {
+    if (route.request().method() === 'POST') {
+      await new Promise(resolve => setTimeout(resolve, 1500))
+    }
+    await route.continue()
+  })
+
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.save-status')).toHaveText('Saving…')
+
+  // Open Game B (already listed on this device from the save above) while
+  // Game A's create is still in flight. The project isn't "saved" yet (it's
+  // mid-save), so this goes through the usual unsaved-work confirm like any
+  // other switch.
+  page.once('dialog', dialog => void dialog.accept())
+  await page.getByRole('button', { name: 'Load' }).click()
+  await openLibraryEntry(page, 'Game B')
+
+  await expect(page.getByLabel('Game name')).toHaveValue('Game B')
+  await expect(page).toHaveURL(linkB)
+
+  // Let the stale create resolve. The reducer already discards it (wrong
+  // token), but the bug was that the address bar and recent-games list were
+  // rewritten outside the reducer, unconditionally.
+  await page.waitForTimeout(1800)
+  await expect(page).toHaveURL(linkB)
+  await expect(page.getByLabel('Game name')).toHaveValue('Game B')
+
+  await page.getByRole('button', { name: 'Load' }).click()
+  await expect(page.locator('.load-dialog')).not.toContainText('Game A')
 })
