@@ -86,14 +86,19 @@ Re-running it is how we pick up newly added Scratch assets.
 
 ```json
 {
-  "source": "scratch-gui@<sha>",
+  "source": "scratch-gui@dae2a97a5bb0cd8a7513fafd60f9e7488f2a89a4",
   "license": "CC-BY-SA-4.0",
-  "sprites":   [{ "id", "name", "tags": [], "costumes": [{ "name", "md5ext", "res" }], "sounds": [{ "name", "md5ext" }] }],
-  "costumes":  [{ "id", "name", "tags": [], "md5ext", "res" }],
-  "backdrops": [{ "id", "name", "tags": [], "md5ext", "res" }],
-  "sounds":    [{ "id", "name", "tags": [], "md5ext", "seconds" }]
+  "sprites":   [{ "name", "tags": [], "costumes": [{ "name", "md5ext", "res" }], "sounds": [{ "name", "md5ext" }] }],
+  "costumes":  [{ "name", "tags": [], "md5ext", "res" }],
+  "backdrops": [{ "name", "tags": [], "md5ext", "res" }],
+  "sounds":    [{ "name", "tags": [], "md5ext", "seconds" }]
 }
 ```
+
+There is deliberately **no `id` field**: an asset's identity is its `md5ext`,
+and a sprite's is its `name` — verified unique across all four catalogs, with
+zero duplicates. Inventing a third identifier would only create something that
+can disagree with those two.
 
 `seconds` is `sampleCount / rate`, precomputed because it is free and lets the
 dialog show durations without fetching a single byte.
@@ -194,11 +199,16 @@ Two changes, at the two layers where it matters:
 
 ### 7. Type cleanup
 
-`LibraryEntry` carries `width`/`height`, which forced the `width: 0, height: 0`
-placeholder on every sound in `library.json`. With dimensions now measured at
-fetch time, the catalog types drop them: images carry `res`, sounds carry
-`seconds`. `LoadedAsset` keeps `width`/`height` because the engine genuinely
-needs them for collision boxes.
+The new catalog types carry no dimensions at all: images carry `res`, sounds
+carry `seconds`. This is why the `width: 0, height: 0` placeholder that every
+sound in `library.json` needs has no equivalent in the Scratch catalog — the
+question it answers is never asked.
+
+`LibraryEntry` and `library.json` are **unchanged**. The ten local assets are
+bundled, so precomputing their dimensions is the right call for them, and
+rewriting that file would churn the manifest, its tests, and the e2e suite for
+no gain. `LoadedAsset` also keeps `width`/`height` — it describes a *decoded*
+asset, and the engine genuinely needs those for collision boxes.
 
 ### 8. Failure behavior
 
