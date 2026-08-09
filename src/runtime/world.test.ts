@@ -182,3 +182,57 @@ describe('sprite facade', () => {
     expect(w.sprites).toEqual([a, b, c])
   })
 })
+
+describe('pen', () => {
+  it('snapshot drains pen ops exactly once', () => {
+    const w = makeWorld()
+    const cat = w.addSprite('Cat', c20)
+    cat.goTo(0, 0)
+    cat.penDown()
+    cat.move(10)
+    expect(w.snapshot().penOps).toHaveLength(2)
+    expect(w.snapshot().penOps).toEqual([])
+  })
+
+  it('every sprite draws into the same layer', () => {
+    const w = makeWorld()
+    const a = w.addSprite('A', c20)
+    const b = w.addSprite('B', c20)
+    a.penDown()
+    b.penDown()
+    expect(w.snapshot().penOps).toHaveLength(2)
+  })
+
+  it('eraseAll queues a clear instead of clearing eagerly', () => {
+    const w = makeWorld()
+    const cat = w.addSprite('Cat', c20)
+    cat.penDown()
+    w.eraseAll()
+    // Ops queued before the clear would have been erased anyway, so only the
+    // clear survives — and drawing after it in the same frame still lands.
+    cat.move(5)
+    const ops = w.snapshot().penOps
+    expect(ops[0]).toEqual({ kind: 'clear' })
+    expect(ops).toHaveLength(2)
+  })
+
+  it('a clone inherits pen state but does not draw as it spawns', () => {
+    const w = makeWorld()
+    const cat = w.addSprite('Cat', c20)
+    cat.goTo(100, 100)
+    cat.setPenColor('red')
+    cat.setPenSize(6)
+    cat.penDown()
+    w.snapshot()
+
+    const c = w.clone(cat)
+    expect(w.snapshot().penOps).toEqual([])
+    expect(c.pen.down).toBe(true)
+    expect(c.pen.size).toBe(6)
+    expect(c.pen.rgb).toBe(0xff0000)
+
+    c.move(10)
+    const [op] = w.snapshot().penOps
+    expect(op).toMatchObject({ kind: 'line', x1: 100, y1: 100, size: 6, color: 0xff0000 })
+  })
+})

@@ -61,6 +61,10 @@ export class World {
     this.bus.fire(`message:${n}`)
   }
 
+  eraseAll(): void {
+    this.penLayer.clear()
+  }
+
   goToFront(s: SpriteModel): void {
     this.sprites = this.sprites.filter(x => x !== s)
     this.sprites.push(s)
@@ -196,6 +200,7 @@ export class World {
       backdrop: this.stage.backdrops[this.stage.currentBackdrop]?.name ?? null,
       watches: this.watches.map(w => ({ name: w.name, value: display(w.get()) })),
       sounds,
+      penOps: this.penLayer.drain(),
     }
   }
 }
