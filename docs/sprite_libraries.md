@@ -70,25 +70,50 @@ separated directory (e.g. `public/library/scratch/`) with a `LICENSE` file
 noting CC BY-SA 4.0 and the attribution line, so their license never blurs
 into the codebase's.
 
-## Suggested bootstrap approach (when Plan 2 builds the library)
+As built, we redistribute **no** Scratch asset bytes at all — the browser
+fetches them from Scratch's own CDN — so ShareAlike never attaches to anything
+in this repo. The attribution obligation still applies, and is met in the
+library dialog and `public/library/LICENSE.md`.
 
-1. Write a one-off script that reads `sprites.json` / `backdrops.json` /
-   `sounds.json`, picks our curated subset (a couple dozen sprites, ~10
-   backdrops, ~10 sounds), and downloads the referenced `md5ext` files from
-   the CDN into `public/library/scratch/`.
-2. Emit our own `library.json` in the app's shape, deriving each entry's
-   `width`/`height` at import time — read them from the SVG header for
-   vectors, or decode the PNG for bitmaps, dividing by `bitmapResolution`.
-   Scratch's catalogs do not carry dimensions (see above), so the import
-   step is where they get computed. Our manifest carries them because we
-   generate it; the engine's `Costume.width/height` reads from there.
-3. Check the downloaded subset into the repo (it is small and versioned) so
-   builds don't depend on the Scratch CDN.
-4. Include the attribution + CC BY-SA 4.0 notice in the same directory and in
-   the library dialog UI.
+## What we actually built
 
-The `library:<id>` save-format convention in the design spec is unaffected —
-this document only determines what populates the library.
+Design spec: `docs/superpowers/specs/2026-08-09-scratch-library-import-design.md`.
+
+The whole library is available, not a curated subset — 339 sprites, 886
+costumes, 85 backdrops, 353 sounds, pointing at 1,331 distinct assets.
+
+1. **A checked-in catalog, no bundled bytes.**
+   `scripts/build-scratch-catalog.ts` reads the four catalogs above from a
+   **pinned scratch-gui commit** (not `develop`, so regeneration is
+   reproducible) and writes `public/library/scratch-catalog.json` — names,
+   tags, `md5ext`, `bitmapResolution`, and sound durations. Stripping
+   Scratch's `blocks`/`variables` takes it from 540 KB to 278 KB (73 KB
+   gzipped). It downloads no asset bytes at all. Re-run it to pick up newly
+   added Scratch assets.
+
+2. **Assets fetch from the CDN at runtime**, only when a project uses one, via
+   `src/ide/scratchAssets.ts`. The CDN sends `access-control-allow-origin: *`
+   and a year-long `max-age` on content-addressed URLs, so the browser caches
+   each asset and the URL can never go stale.
+
+3. **Dimensions are measured in the browser**, not stored in the catalog —
+   exactly as the section above argues they should be. The decoded image's
+   natural size is divided by `bitmapResolution` (a `res: 2` PNG is retina:
+   `Arctic` is 960×720 and renders at 480×360), then capped to the stage by
+   the same `downscale` uploads use.
+
+4. **Attribution** lives in the library dialog footer and in
+   `public/library/LICENSE.md`, as CC BY-SA 4.0 requires.
+
+The save format grew one convention: built-ins stay `library:<id>`, and Scratch
+assets are `scratch:<md5ext>`. Because that ref names the bytes rather than a
+catalog slot, regenerating the catalog can never break an existing saved game.
+
+**Trade-offs accepted** (tracked in `docs/TODO.md`): a saved game depends on
+MIT continuing to serve that endpoint, and every player's IP is exposed to
+`scratch.mit.edu`. When the CDN is unreachable the app still starts, the
+bundled ten still work, and the failure surfaces as a message rather than a
+crash.
 
 Sources:
 - [scratch-gui sprites.json](https://github.com/scratchfoundation/scratch-gui/blob/develop/src/lib/libraries/sprites.json)

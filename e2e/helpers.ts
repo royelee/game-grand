@@ -28,6 +28,14 @@ export async function pickFromLibrary(page: Page, label: string): Promise<void> 
   await card.getByRole('button', { name: 'Use this' }).first().click()
 }
 
+/** Click "Use this" on a Scratch catalog card, scoped to the catalog grid. */
+export async function pickFromScratch(page: Page, name: string): Promise<void> {
+  await page.locator('.library-dialog .library-search').fill(name)
+  const card = page.locator('.library-dialog .library-grid .library-entry').filter({ hasText: name })
+  await card.getByRole('button', { name: 'Use this' }).first().click()
+  await expect(page.locator('.library-dialog')).toHaveCount(0)
+}
+
 export async function selectTab(page: Page, tab: string): Promise<void> {
   await page.locator('.tab', { hasText: new RegExp(`^${tab}$`) }).click()
 }
