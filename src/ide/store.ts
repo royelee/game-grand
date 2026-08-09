@@ -1,6 +1,6 @@
 import {
-  addBackdrop, addSound, addSprite, deleteSprite, renameSprite, setScript, uniqueSpriteName,
-  type AssetRef, type Project,
+  addBackdrop, addSound, addSprite, createEmptyProject, deleteSprite, renameSprite, setScript,
+  uniqueSpriteName, type AssetRef, type Project,
 } from '../shared/project'
 import type { ScriptIssue } from '../runtime/executor'
 
@@ -152,7 +152,12 @@ function applyAction(state: IdeState, action: IdeAction): IdeState {
       return { ...state, projectId: action.id, save: { status: 'saved', message: null } }
 
     case 'save-failed':
-      if (action.token !== state.saveToken) return state
+      if (action.token !== state.saveToken) {
+        // This failure belongs to a save that is no longer current. Don't show
+        // its error, but never leave the UI stuck on "Saving…" — the kid must
+        // always be able to save again.
+        return { ...state, save: { status: 'idle', message: null } }
+      }
       return { ...state, save: { status: 'error', message: action.message } }
 
     case 'project-loaded':
@@ -194,4 +199,14 @@ export function reducer(state: IdeState, action: IdeAction): IdeState {
     return { ...bumped, save: { status: 'idle', message: null } }
   }
   return bumped
+}
+
+/**
+ * True when the project differs from a brand-new one and isn't saved. Compares
+ * the whole document rather than a field subset — a backdrop, a sound, or a
+ * rename is just as much a kid's work as a script.
+ */
+export function hasUnsavedWork(state: IdeState): boolean {
+  if (state.save.status === 'saved') return false
+  return JSON.stringify(state.project) !== JSON.stringify(createEmptyProject())
 }

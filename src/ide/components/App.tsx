@@ -7,7 +7,7 @@ import {
   type AssetStore, type LibraryEntry, type LibraryManifest,
 } from '../library'
 import { forgetGame, readRecent, rememberGame } from '../recentGames'
-import { initialState, reducer } from '../store'
+import { hasUnsavedWork, initialState, reducer } from '../store'
 import { measureImage, downscale, readFileAsDataUrl } from '../upload'
 import { ApiDrawer } from './ApiDrawer'
 import { CodeEditor } from './CodeEditor'
@@ -172,11 +172,8 @@ export function App() {
     // Loading a project replaces the whole in-memory project with no merge —
     // if the current one isn't safely on the server yet, confirm first so a
     // kid can't lose work by tapping "Open" on something in the drawer.
-    const hasUnsavedWork =
-      state.save.status !== 'saved' &&
-      (state.project.sprites.length > 0 || state.project.mainScript !== '')
     if (
-      hasUnsavedWork &&
+      hasUnsavedWork(state) &&
       !window.confirm("Your changes aren't saved yet. Open another game anyway?")
     ) {
       return

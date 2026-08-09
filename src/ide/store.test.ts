@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { initialState, reducer, MAX_CONSOLE_LINES } from './store'
+import { hasUnsavedWork, initialState, reducer, MAX_CONSOLE_LINES } from './store'
 import { createEmptyProject, addSprite, type AssetRef } from '../shared/project'
 
 const costume: AssetRef = { name: 'cat-a', source: 'library:cat-a' }
@@ -180,10 +180,27 @@ describe('save token invalidation', () => {
     expect(s.save.status).toBe('idle')
   })
 
-  it('ignores a stale save-failed and does not disturb a good state', () => {
+  it('a stale save-failed never disturbs the project or the id, only the save status', () => {
     const s = reducer(withCat(), { type: 'saved', id: 'abc123', token: 0 })
     const after = reducer(s, { type: 'save-failed', message: 'stale error', token: s.saveToken - 1 })
-    expect(after).toEqual(s)
+    expect(after.projectId).toBe(s.projectId)
+    expect(after.project).toEqual(s.project)
+    expect(after.save).toEqual({ status: 'idle', message: null })
+  })
+
+  it('a stale save-failed after an edit never strands the UI on "Saving…"', () => {
+    let s = reducer(withCat(), { type: 'saving' })
+    const staleToken = s.saveToken
+    s = reducer(s, { type: 'set-script', tab: 'main', script: 'vars.score = 0' })
+    s = reducer(s, { type: 'save-failed', message: 'stale error', token: staleToken })
+    expect(s.save.status).toBe('idle')
+    expect(s.save.status).not.toBe('saving')
+  })
+
+  it('a save-failed whose token still matches shows the error', () => {
+    let s = reducer(withCat(), { type: 'saving' })
+    s = reducer(s, { type: 'save-failed', message: 'That game is too big to save.', token: s.saveToken })
+    expect(s.save).toEqual({ status: 'error', message: 'That game is too big to save.' })
   })
 
   it('applies a save response whose token still matches', () => {
@@ -199,5 +216,38 @@ describe('save token invalidation', () => {
     const s = reducer(before, { type: 'project-loaded', id: 'xyz', project: loaded })
     expect(s.save).toEqual({ status: 'saved', message: null })
     expect(s.saveToken).toBe(before.saveToken + 1)
+  })
+})
+
+describe('hasUnsavedWork', () => {
+  it('is false for a pristine, never-touched project', () => {
+    expect(hasUnsavedWork(initialState(createEmptyProject()))).toBe(false)
+  })
+
+  it('is true after adding a backdrop alone', () => {
+    const s = reducer(initialState(createEmptyProject()), {
+      type: 'add-backdrop', ref: { name: 'night', source: 'library:night' },
+    })
+    expect(hasUnsavedWork(s)).toBe(true)
+  })
+
+  it('is true after renaming the project alone', () => {
+    const s = reducer(initialState(createEmptyProject()), { type: 'rename-project', name: 'Cat Chase' })
+    expect(hasUnsavedWork(s)).toBe(true)
+  })
+
+  it('is true after adding a sound alone', () => {
+    const s = reducer(initialState(createEmptyProject()), {
+      type: 'add-sound', ref: { name: 'meow', source: 'library:meow' },
+    })
+    expect(hasUnsavedWork(s)).toBe(true)
+  })
+
+  it('is false right after a project loads, since that matches the server', () => {
+    const loaded = addSprite(createEmptyProject(), 'Bat', [costume])
+    const s = reducer(initialState(createEmptyProject()), {
+      type: 'project-loaded', id: 'xyz', project: loaded,
+    })
+    expect(hasUnsavedWork(s)).toBe(false)
   })
 })
