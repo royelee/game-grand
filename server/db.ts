@@ -1,5 +1,21 @@
-import { DatabaseSync } from 'node:sqlite'
+import { createRequire } from 'node:module'
 import { newProjectId } from './ids.ts'
+
+// Loaded through createRequire rather than a static import: Vite (which powers
+// Vitest) strips the `node:` prefix from builtins it doesn't know about and
+// then fails to resolve a bare `sqlite`, which would leave this file untestable.
+// createRequire is not statically analysed, so it works under both plain Node
+// and Vitest.
+const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as {
+  DatabaseSync: new (filename: string) => {
+    exec(sql: string): void
+    prepare(sql: string): {
+      run(...params: unknown[]): { changes: number | bigint }
+      get(...params: unknown[]): unknown
+    }
+    close(): void
+  }
+}
 
 export interface StoredProject {
   id: string
@@ -13,7 +29,7 @@ export interface StoredProject {
  * this layer; the store's only job is durable, verbatim storage.
  */
 export class ProjectStore {
-  private db: DatabaseSync
+  private db: InstanceType<typeof DatabaseSync>
 
   constructor(filename: string) {
     this.db = new DatabaseSync(filename)
