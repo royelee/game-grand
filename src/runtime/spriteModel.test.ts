@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Clock } from './clock'
 import { SpriteModel, type Costume } from './spriteModel'
 import { FriendlyError } from './errors'
+import { PenLayer } from './pen'
 
 const cat: Costume[] = [{ name: 'cat-a', width: 20, height: 20, source: 'library:cat-a' }]
 const make = () => {
@@ -116,5 +117,126 @@ describe('SpriteModel motion', () => {
     expect(s.x).toBe(5)
     s.changeY(-10)
     expect(s.y).toBe(10)
+  })
+})
+
+describe('pen', () => {
+  const makePen = () => {
+    const layer = new PenLayer()
+    const clock = new Clock()
+    return { layer, clock, s: new SpriteModel('Cat', cat, clock, 7, layer) }
+  }
+
+  it('penDown marks a dot where the sprite already is', () => {
+    const { layer, s } = makePen()
+    s.goTo(10, 20)
+    s.penDown()
+    expect(layer.drain()).toEqual([
+      { kind: 'dot', x: 10, y: 20, color: 0x0000ff, alpha: 1, size: 1 },
+    ])
+  })
+
+  it('draws nothing while the pen is up', () => {
+    const { layer, s } = makePen()
+    s.move(10)
+    s.goTo(1, 2)
+    s.changeX(3)
+    s.changeY(4)
+    expect(layer.drain()).toEqual([])
+  })
+
+  it('every motion path draws a segment from where the sprite was', () => {
+    const { layer, s } = makePen()
+    s.penDown()
+    layer.drain()
+
+    s.goTo(0, 0)
+    s.changeX(10)
+    s.changeY(5)
+    const ops = layer.drain()
+    expect(ops).toHaveLength(2)
+    expect(ops[0]).toMatchObject({ kind: 'line', x1: 0, y1: 0, x2: 10, y2: 0 })
+    expect(ops[1]).toMatchObject({ kind: 'line', x1: 10, y1: 0, x2: 10, y2: 5 })
+  })
+
+  it('move draws along the direction it faces', () => {
+    const { layer, s } = makePen()
+    s.goTo(0, 0)
+    s.penDown()
+    layer.drain()
+    s.move(10)
+    const [op] = layer.drain()
+    expect(op).toMatchObject({ kind: 'line', x1: 0, y1: 0, x2: 10 })
+  })
+
+  it('glide draws one segment per frame, not one for the whole glide', () => {
+    const { layer, clock, s } = makePen()
+    s.goTo(0, 0)
+    s.penDown()
+    layer.drain()
+    void s.glide(10, 0, 1)
+    clock.tick(0.5)
+    clock.tick(0.5)
+    const ops = layer.drain()
+    expect(ops).toHaveLength(2)
+    expect(ops[0]).toMatchObject({ x1: 0, x2: 5 })
+    expect(ops[1]).toMatchObject({ x1: 5, x2: 10 })
+  })
+
+  it('ifOnEdgeBounce draws the nudge back inside', () => {
+    const { layer, s } = makePen()
+    s.goTo(400, 0)
+    s.penDown()
+    layer.drain()
+    s.ifOnEdgeBounce()
+    const ops = layer.drain()
+    expect(ops).toHaveLength(1)
+    expect(ops[0]).toMatchObject({ kind: 'line', x1: 400, x2: 230 })
+  })
+
+  it('penUp stops the drawing without moving anything', () => {
+    const { layer, s } = makePen()
+    s.penDown()
+    layer.drain()
+    s.penUp()
+    s.move(10)
+    expect(layer.drain()).toEqual([])
+  })
+
+  it('uses the pen colour and size that were set', () => {
+    const { layer, s } = makePen()
+    s.setPenColor('hotpink')
+    s.setPenSize(8)
+    s.goTo(0, 0)
+    s.penDown()
+    expect(layer.drain()).toEqual([
+      { kind: 'dot', x: 0, y: 0, color: 0xff69b4, alpha: 1, size: 8 },
+    ])
+  })
+
+  it('rejects a colour it does not know, by name', () => {
+    const { s } = makePen()
+    expect(() => s.setPenColor('blurple')).toThrow(
+      '`setPenColor` doesn\'t know the color "blurple". Try a color name like "red", "hotpink" or "skyblue", or a hex code like "#ff0000".',
+    )
+    expect(() => s.setPenColor(5)).toThrow('`setPenColor` needs some text in quotes')
+  })
+
+  it('stamp queues the sprite id, and a hidden sprite stamps nothing', () => {
+    const { layer, s } = makePen()
+    s.stamp()
+    expect(layer.drain()).toEqual([{ kind: 'stamp', spriteId: 7 }])
+    s.hide()
+    s.stamp()
+    expect(layer.drain()).toEqual([])
+  })
+
+  it('setPen and changePen reach the pen state', () => {
+    const { s } = makePen()
+    s.setPen({ color: 0 })
+    expect(s.pen.rgb).toBe(0xff0000)
+    s.changePen({ transparency: 50 })
+    expect(s.pen.alpha).toBeCloseTo(0.5, 5)
+    expect(() => s.setPen({ nope: 1 })).toThrow('`setPen` doesn\'t know the pen setting "nope"')
   })
 })

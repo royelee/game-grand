@@ -39,8 +39,7 @@ export class RuntimeSession {
           name: c.name, width: c.width, height: c.height, source: c.dataUrl,
         })),
       )
-      model.x = s.x
-      model.y = s.y
+      model.place(s.x, s.y)
       model.size = s.size
       model.direction = s.direction
       model.visible = s.visible

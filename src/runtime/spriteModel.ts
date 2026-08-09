@@ -1,5 +1,7 @@
 import { Clock } from './clock'
 import { FriendlyError, expectNumber, expectString } from './errors'
+import { PenLayer, PenState, readPenSettings } from './pen'
+import { parseColor } from './colors'
 
 export interface Costume {
   name: string
@@ -19,8 +21,8 @@ export function wrapDirection(d: number): number {
 }
 
 export class SpriteModel {
-  x = 0
-  y = 0
+  private _x = 0
+  private _y = 0
   direction = 90
   size = 100
   visible = true
@@ -30,6 +32,7 @@ export class SpriteModel {
   currentCostume = 0
   deleted = false
   isClone = false
+  pen = new PenState()
   private bubbleGen = 0
 
   constructor(
@@ -40,7 +43,40 @@ export class SpriteModel {
     // sprite across snapshots even as clones share names and layer order
     // mutates. Defaults to 0 for direct construction in tests.
     public readonly id: number = 0,
+    private penLayer: PenLayer = new PenLayer(),
   ) {}
+
+  get x(): number {
+    return this._x
+  }
+
+  get y(): number {
+    return this._y
+  }
+
+  /**
+   * The only writer of x/y. The fields are private precisely so that no motion
+   * path can move a sprite without the pen noticing: a hook remembered at each
+   * call site would fail silently the first time someone adds another one.
+   */
+  place(x: number, y: number): void {
+    // A move that goes nowhere draws nothing: otherwise a goTo of the current
+    // position inside onUpdate would spend a pen op every frame forever.
+    if (this.pen.down && (x !== this._x || y !== this._y)) {
+      this.penLayer.push({
+        kind: 'line',
+        x1: this._x,
+        y1: this._y,
+        x2: x,
+        y2: y,
+        color: this.pen.rgb,
+        alpha: this.pen.alpha,
+        size: this.pen.size,
+      })
+    }
+    this._x = x
+    this._y = y
+  }
 
   halfExtents(): { halfW: number; halfH: number } {
     const c = this.costumes[this.currentCostume]
@@ -53,8 +89,7 @@ export class SpriteModel {
   move(steps: unknown): void {
     const n = expectNumber('move', 'sprite.move(10)', steps)
     const rad = (this.direction * Math.PI) / 180
-    this.x += n * Math.sin(rad)
-    this.y += n * Math.cos(rad)
+    this.place(this._x + n * Math.sin(rad), this._y + n * Math.cos(rad))
   }
 
   turnRight(deg: unknown): void {
@@ -68,16 +103,20 @@ export class SpriteModel {
   }
 
   goTo(x: unknown, y: unknown): void {
-    this.x = expectNumber('goTo', 'sprite.goTo(0, 0)', x)
-    this.y = expectNumber('goTo', 'sprite.goTo(0, 0)', y)
+    // Both arguments validate before either lands, so a bad y cannot leave x
+    // half-applied.
+    this.place(
+      expectNumber('goTo', 'sprite.goTo(0, 0)', x),
+      expectNumber('goTo', 'sprite.goTo(0, 0)', y),
+    )
   }
 
   changeX(n: unknown): void {
-    this.x += expectNumber('changeX', 'sprite.changeX(10)', n)
+    this.place(this._x + expectNumber('changeX', 'sprite.changeX(10)', n), this._y)
   }
 
   changeY(n: unknown): void {
-    this.y += expectNumber('changeY', 'sprite.changeY(10)', n)
+    this.place(this._x, this._y + expectNumber('changeY', 'sprite.changeY(10)', n))
   }
 
   pointInDirection(deg: unknown): void {
@@ -105,18 +144,16 @@ export class SpriteModel {
     const ty = expectNumber('glide', 'sprite.glide(100, 100, 1)', y)
     const s = expectNumber('glide', 'sprite.glide(100, 100, 1)', secs)
     if (s <= 0) {
-      this.x = tx
-      this.y = ty
+      this.place(tx, ty)
       return Promise.resolve()
     }
-    const sx = this.x
-    const sy = this.y
+    const sx = this._x
+    const sy = this._y
     const start = this.clock.now
     return new Promise(resolve => {
       const unsub = this.clock.onFrame(() => {
         const t = Math.min(1, (this.clock.now - start) / s)
-        this.x = sx + (tx - sx) * t
-        this.y = sy + (ty - sy) * t
+        this.place(sx + (tx - sx) * t, sy + (ty - sy) * t)
         if (t >= 1) {
           unsub()
           resolve()
@@ -135,8 +172,10 @@ export class SpriteModel {
     if (this.y + halfH > T || this.y - halfH < -T) {
       this.direction = wrapDirection(180 - this.direction)
     }
-    this.x = Math.min(Math.max(this.x, -R + halfW), R - halfW)
-    this.y = Math.min(Math.max(this.y, -T + halfH), T - halfH)
+    this.place(
+      Math.min(Math.max(this._x, -R + halfW), R - halfW),
+      Math.min(Math.max(this._y, -T + halfH), T - halfH),
+    )
   }
 
   private bubble(kind: 'say' | 'think', text: unknown, secs?: unknown): Promise<void> | void {
@@ -200,5 +239,55 @@ export class SpriteModel {
 
   clearEffects(): void {
     this.effects = {}
+  }
+
+  penDown(): void {
+    this.pen.down = true
+    // Scratch marks a dot straight away, so a sprite that puts its pen down and
+    // never moves still leaves something behind.
+    this.penLayer.push({
+      kind: 'dot',
+      x: this._x,
+      y: this._y,
+      color: this.pen.rgb,
+      alpha: this.pen.alpha,
+      size: this.pen.size,
+    })
+  }
+
+  penUp(): void {
+    this.pen.down = false
+  }
+
+  stamp(): void {
+    if (!this.visible) return
+    this.penLayer.push({ kind: 'stamp', spriteId: this.id })
+  }
+
+  setPenColor(color: unknown): void {
+    const text = expectString('setPenColor', 'sprite.setPenColor("red")', color)
+    const parsed = parseColor(text)
+    if (!parsed) {
+      throw new FriendlyError(
+        `\`setPenColor\` doesn't know the color "${text}". Try a color name like "red", "hotpink" or "skyblue", or a hex code like "#ff0000".`,
+      )
+    }
+    this.pen.setColorFromRgb(parsed.rgb, parsed.alpha)
+  }
+
+  setPenSize(n: unknown): void {
+    this.pen.setSize(expectNumber('setPenSize', 'sprite.setPenSize(5)', n))
+  }
+
+  changePenSize(n: unknown): void {
+    this.pen.changeSize(expectNumber('changePenSize', 'sprite.changePenSize(2)', n))
+  }
+
+  setPen(settings: unknown): void {
+    this.pen.setParams(readPenSettings('setPen', settings))
+  }
+
+  changePen(settings: unknown): void {
+    this.pen.changeParams(readPenSettings('changePen', settings))
   }
 }

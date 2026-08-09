@@ -5,6 +5,7 @@ import { SpriteModel, type Costume } from './spriteModel'
 import { bounds } from './sensing'
 import { FriendlyError, expectString } from './errors'
 import { display } from './display'
+import { PenLayer } from './pen'
 
 export interface WatchEntry {
   name: string
@@ -25,6 +26,7 @@ export class World {
   mouse = { x: 0, y: 0, isDown: false }
   volume = 100
   watches: WatchEntry[] = []
+  penLayer = new PenLayer()
   running = true
 
   private soundNames: string[]
@@ -41,7 +43,7 @@ export class World {
   }
 
   addSprite(name: string, costumes: Costume[]): SpriteModel {
-    const s = new SpriteModel(name, costumes, this.clock, this.nextSpriteId++)
+    const s = new SpriteModel(name, costumes, this.clock, this.nextSpriteId++, this.penLayer)
     this.sprites.push(s)
     return s
   }
@@ -72,15 +74,17 @@ export class World {
   }
 
   clone(src: SpriteModel): SpriteModel {
-    const c = new SpriteModel(src.name, src.costumes, this.clock, this.nextSpriteId++)
-    c.x = src.x
-    c.y = src.y
+    const c = new SpriteModel(src.name, src.costumes, this.clock, this.nextSpriteId++, this.penLayer)
+    // Placed before the pen state is copied: a fresh PenState is pen-up, so
+    // spawning a clone never draws a line from wherever the last sprite was.
+    c.place(src.x, src.y)
     c.direction = src.direction
     c.size = src.size
     c.visible = src.visible
     c.rotationStyle = src.rotationStyle
     c.currentCostume = src.currentCostume
     c.effects = { ...src.effects }
+    c.pen.copyFrom(src.pen)
     c.isClone = true
     this.sprites.push(c)
     this.bus.fire(`clone:${src.name}`, c)
