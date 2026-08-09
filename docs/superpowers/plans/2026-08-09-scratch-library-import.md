@@ -4,7 +4,7 @@
 
 **Goal:** Give the playground the entire Scratch media library — 339 sprites, 886 costumes, 85 backdrops, 353 sounds — through a checked-in catalog and on-demand CDN fetches, picked from a searchable dialog.
 
-**Architecture:** A build-time script turns Scratch's four catalog JSONs into one 241 KB `scratch-catalog.json` that is checked in and describes *what exists* — identity and tags only, no bytes and no dimensions. At runtime the IDE fetches an asset from `assets.scratch.mit.edu` only when a project actually uses it, measures it in the browser, and puts it in the existing `AssetStore` under the ref `scratch:<md5ext>`. The ten hand-authored local assets stay exactly as they are, as the offline core.
+**Architecture:** A build-time script turns Scratch's four catalog JSONs into one 278 KB `scratch-catalog.json` that is checked in and describes *what exists* — identity and tags only, no bytes and no dimensions. At runtime the IDE fetches an asset from `assets.scratch.mit.edu` only when a project actually uses it, measures it in the browser, and puts it in the existing `AssetStore` under the ref `scratch:<md5ext>`. The ten hand-authored local assets stay exactly as they are, as the offline core.
 
 **Tech Stack:** TypeScript run directly by Node 25 (type stripping, as `server/index.ts` already does), React 18, Vitest, Playwright.
 
@@ -31,7 +31,7 @@
 scripts/build-scratch-catalog.ts       # pure transform + CLI; writes the catalog     (Task 1)
 scripts/build-scratch-catalog.test.ts  # transform tested against inline fixtures     (Task 1)
 src/shared/scratchCatalog.ts           # catalog types, imported by script and IDE    (Task 1)
-public/library/scratch-catalog.json    # generated, checked in (~241 KB)              (Task 1)
+public/library/scratch-catalog.json    # generated, checked in (~278 KB)              (Task 1)
 tsconfig.server.json                   # + "scripts" in include                       (Task 1)
 
 src/ide/scratchAssets.ts               # ref helpers, CDN fetch, measure, dedupe      (Task 2)
@@ -289,7 +289,7 @@ const sprite = (s: RawSprite): CatalogSprite => ({
 /**
  * Pure transform. Drops `blocks` and `variables` — Scratch block definitions
  * our JavaScript engine can't interpret, and most of the catalog's bulk
- * (540 KB → 241 KB).
+ * (540 KB → 278 KB).
  */
 export function buildCatalog(raw: RawCatalogs): ScratchCatalog {
   return {
@@ -354,7 +354,7 @@ Expected: no errors. (`erasableSyntaxOnly` is on, so avoid enums and parameter p
 Run: `node scripts/build-scratch-catalog.ts`
 Expected output: `339 sprites, 886 costumes, 85 backdrops, 353 sounds`.
 
-Verify the size is in the expected range (~241 KB):
+Verify the size is in the expected range (~278 KB):
 
 ```bash
 ls -l public/library/scratch-catalog.json

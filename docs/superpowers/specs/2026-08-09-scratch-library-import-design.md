@@ -35,7 +35,7 @@ These were measured against the live catalogs and CDN, not assumed.
 |---|---|
 | Catalog counts | 339 sprites (avg 2.6 costumes, max 13), 886 costumes, 85 backdrops, 353 sounds |
 | Distinct assets | **1,331** — sprite costumes overlap `costumes.json`, and MD5 identity dedupes them for free |
-| Stripped catalog size | **241 KB raw, 70 KB gzipped** — small enough to check in |
+| Stripped catalog size | **278 KB raw, 73 KB gzipped** — small enough to check in |
 | CDN CORS | `access-control-allow-origin: *` on `https://assets.scratch.mit.edu/internalapi/asset/<md5ext>/get/` |
 | CDN caching | `cache-control: max-age=31536000, must-revalidate`; ETag *is* the MD5 |
 | Formats | Costumes/backdrops `svg` or `png`; sounds `wav` |
@@ -51,7 +51,7 @@ These were measured against the live catalogs and CDN, not assumed.
   the extension on `md5ext`, never `dataFormat`.
 - `sprites.json` carries `blocks` and `variables` — Scratch block definitions,
   meaningless to our JavaScript engine. Stripping them is most of why the
-  catalog shrinks from 540 KB to 241 KB.
+  catalog shrinks from 540 KB to 278 KB.
 
 ## Architecture
 
@@ -67,7 +67,7 @@ scratch-gui @ pinned SHA           LibraryDialog
         ▼                            ▼
 public/library/                    AssetStore  (source → {dataUrl, w, h})
   scratch-catalog.json               │
-  (241 KB, checked in)               ▼
+  (278 KB, checked in)               ▼
                                    toRunPayload → sandboxed iframe
 ```
 
