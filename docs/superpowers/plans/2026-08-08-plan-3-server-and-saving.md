@@ -42,7 +42,7 @@ e2e/save-load.spec.ts       # round trip against the real server               (
 
 Tests are colocated (`server/db.test.ts`, `src/ide/api.test.ts`, …).
 
-**Why the server needs no build step:** Node executes `.ts` directly by stripping types. Two consequences the tasks depend on: imports between server files must carry an explicit `.ts` extension, and only erasable syntax is allowed (no `enum`, no `namespace`, no constructor parameter properties). Type-only imports must be written `import type { … }` so they are erased rather than resolved at runtime.
+**Why the server needs no build step:** Node executes `.ts` directly by stripping types. Three consequences the tasks depend on: imports between server files must carry an explicit `.ts` extension; only erasable syntax is allowed (no `enum`, no `namespace`, no constructor parameter properties — `tsconfig.server.json` sets `erasableSyntaxOnly` to enforce this); and any client module the server imports must itself import nothing, because `tsc` resolves type imports even though Node erases them.
 
 ---
 
@@ -408,7 +408,7 @@ git commit -m "feat: SQLite project store with capability ids"
 **Interfaces:**
 - Consumes: `Project` (type only).
 - Produces: `MAX_PROJECT_BYTES = 10 * 1024 * 1024`; `type ValidationResult = { ok: true; project: Project } | { ok: false; error: string }`; `parseProjectDocument(raw: string): ValidationResult` (parses and validates, and enforces the byte cap); `validateProject(value: unknown): ValidationResult` (validates an already-parsed value).
-- This module has **no runtime imports** — its only import is `import type { Project } from './project'`, which is erased at runtime. That is what lets the server import it directly under Node's type stripping. Task 4 depends on this property.
+- This module imports **nothing at all** — not even types — and owns the data types (`AssetRef`, `SpriteDef`, `StageDef`, `Project`), which `src/shared/project.ts` re-exports. A type-only import would still be *resolved* by `tsc`, dragging the whole client module graph into `tsconfig.server.json`'s NodeNext/erasableSyntaxOnly check and breaking `npm run build`. "No runtime imports" is necessary but not sufficient; "no imports" is the property Task 4 actually depends on. A test asserts the file contains no `import` line.
 - Error messages are readable by a person, since they surface in the IDE: `"That file isn't a game this app can open (it has no version)."`
 
 - [ ] **Step 1: Write the failing test**
