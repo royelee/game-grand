@@ -5,6 +5,7 @@ Items intentionally left out of v1, to follow up later.
 ## Plan 3 (server) hard requirement
 
 - [ ] **The server must send `Access-Control-Allow-Origin: *` for `runtime.html` and its bundle.** The stage runs in `<iframe sandbox="allow-scripts">`, which gives it an opaque (`null`) origin, and module scripts are always fetched in CORS mode. Without the header the iframe cannot load its own JavaScript and the stage stays blank — this was caught by the e2e suite, not by unit tests or review. Vite's dev and preview servers are configured for it in `vite.config.ts`; a production server must do the same.
+- [ ] **The server must also send `Content-Security-Policy: frame-ancestors 'self'` for `runtime.html`.** `main.ts` already refuses to start a run unless `self.origin === 'null'` (proof it's inside the app's own sandboxed iframe), but that's a client-side check; `frame-ancestors` stops another origin from framing `runtime.html` at all, which matters once Plan 3 adds saved projects and secret links.
 
 ## Plan 2 contract notes (from Plan 1 final review)
 
