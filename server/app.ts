@@ -1,7 +1,13 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { ProjectStore } from './db.ts'
 import { registerProjectRoutes } from './routes.ts'
+import { registerStatic } from './static.ts'
 import { MAX_PROJECT_BYTES } from '../src/shared/projectSchema.ts'
+
+const defaultDist = (): string =>
+  resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist')
 
 export interface AppOptions {
   // `{ stream }` is a test-only escape hatch: it takes the exact same
@@ -11,6 +17,10 @@ export interface AppOptions {
   logger?: boolean | { stream: NodeJS.WritableStream }
   store?: ProjectStore
   now?: () => number
+  // The built client to serve. Defaults to `dist/` next to the server.
+  // Tests that only care about the API pass `null` so a stray `dist/` on
+  // disk can't make them serve static files instead of JSON.
+  staticRoot?: string | null
 }
 
 export function buildApp(options: AppOptions = {}): FastifyInstance {
@@ -55,9 +65,14 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/api/health', async () => ({ ok: true }))
 
-  app.setNotFoundHandler(async (_request, reply) =>
-    reply.code(404).send({ error: 'That page was not found.' }),
-  )
+  const staticRoot = options.staticRoot === undefined ? defaultDist() : options.staticRoot
+  if (staticRoot) {
+    registerStatic(app, { root: staticRoot })
+  } else {
+    app.setNotFoundHandler(async (_request, reply) =>
+      reply.code(404).send({ error: 'That page was not found.' }),
+    )
+  }
 
   return app
 }

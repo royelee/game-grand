@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Writable } from 'node:stream'
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { buildApp } from './app.ts'
 import { ProjectStore } from './db.ts'
 import type { FastifyInstance } from 'fastify'
@@ -28,7 +31,7 @@ let clock = 1000
 beforeEach(() => {
   store = new ProjectStore(':memory:')
   clock = 1000
-  app = buildApp({ store, now: () => clock })
+  app = buildApp({ store, now: () => clock, staticRoot: null })
 })
 afterEach(async () => {
   await app.close()
@@ -144,5 +147,59 @@ describe('logging', () => {
     expect(lines.length).toBeGreaterThan(0)
     expect(lines.some(line => line.includes('/api/projects/[id]'))).toBe(true)
     for (const line of lines) expect(line).not.toContain(id)
+  })
+})
+
+function fakeDist(): string {
+  const root = mkdtempSync(join(tmpdir(), 'dist-'))
+  mkdirSync(join(root, 'assets'))
+  writeFileSync(join(root, 'index.html'), '<!doctype html><title>IDE</title>')
+  writeFileSync(join(root, 'runtime.html'), '<!doctype html><title>Stage</title>')
+  writeFileSync(join(root, 'assets', 'runtime-abc.js'), 'console.log(1)')
+  return root
+}
+
+describe('static serving', () => {
+  let staticApp: FastifyInstance
+  let staticStore: ProjectStore
+
+  beforeEach(() => {
+    staticStore = new ProjectStore(':memory:')
+    staticApp = buildApp({ store: staticStore, staticRoot: fakeDist() })
+  })
+  afterEach(async () => {
+    await staticApp.close()
+    staticStore.close()
+  })
+
+  it('serves the IDE at the root', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/' })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('IDE')
+  })
+
+  it('serves runtime.html with the headers the sandboxed stage needs', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/runtime.html' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBe('*')
+    expect(res.headers['content-security-policy']).toBe("frame-ancestors 'self'")
+  })
+
+  it('serves the stage bundle cross-origin, or the stage never boots', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/assets/runtime-abc.js' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['access-control-allow-origin']).toBe('*')
+  })
+
+  it('serves the IDE for a project link so the app can route', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/p/abcdefghijklmnopqrstuv' })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toContain('IDE')
+  })
+
+  it('still answers api routes as json', async () => {
+    const res = await staticApp.inject({ method: 'GET', url: '/api/nope' })
+    expect(res.statusCode).toBe(404)
+    expect(res.json().error).toBeTruthy()
   })
 })
