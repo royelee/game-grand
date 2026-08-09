@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
 import {
-  addSpriteFromLibrary, chooseBackdrop, consoleLines, pickFromLibrary, run,
-  selectTab, setEditorContent, stage, stop, tinyPngBuffer, tinyWavBuffer, waitForLibrary,
+  addSpriteFromLibrary, assetTab, chooseBackdrop, chooseSound, consoleLines, openSoundPicker,
+  pickFromLibrary, run, selectTab, setEditorContent, stage, stop, tinyPngBuffer, tinyWavBuffer,
+  waitForLibrary,
 } from './helpers'
 
 test.beforeEach(async ({ page }) => {
@@ -235,8 +236,7 @@ test('clones spawn and report themselves', async ({ page }) => {
 test('a sound can be added from the library and played by a script', async ({ page }) => {
   await addSpriteFromLibrary(page, 'Cat')
 
-  await page.getByRole('button', { name: 'Sounds' }).click()
-  await pickFromLibrary(page, 'Beep')
+  await chooseSound(page, 'Beep')
 
   await setEditorContent(page, 'onStart(() => playSound("beep"))')
   await run(page)
@@ -247,7 +247,7 @@ test('a sound can be added from the library and played by a script', async ({ pa
 
 test('uploads an audio file as a sound, and a script can play it with no error', async ({ page }) => {
   await addSpriteFromLibrary(page, 'Cat')
-  await page.getByRole('button', { name: 'Sounds' }).click()
+  await openSoundPicker(page)
   await page.locator('.library-dialog input[type="file"]').setInputFiles({
     name: 'honk.wav',
     mimeType: 'audio/wav',
@@ -264,8 +264,7 @@ test('uploads an audio file as a sound, and a script can play it with no error',
 
 test('playSoundUntilDone resolves so the script continues', async ({ page }) => {
   await addSpriteFromLibrary(page, 'Cat')
-  await page.getByRole('button', { name: 'Sounds' }).click()
-  await pickFromLibrary(page, 'Pop')
+  await chooseSound(page, 'Pop')
 
   await setEditorContent(
     page,
@@ -294,8 +293,9 @@ test('a failed library load shows a retry banner and recovers', async ({ page })
   const banner = page.locator('.banner')
   await expect(banner).toBeVisible()
   await expect(banner).toContainText('didn’t load')
-  // Add sprite must not silently do nothing while the library is unavailable.
-  await page.getByRole('button', { name: '+ Add sprite' }).click()
+  // Adding must not silently do nothing while the library is unavailable — the
+  // button says so itself rather than opening a dialog with nothing in it.
+  await expect(page.getByRole('button', { name: '+ Add sprite' })).toBeDisabled()
   await expect(page.locator('.library-dialog')).toHaveCount(0)
 
   await page.unroute('**/library/library.json')
@@ -305,4 +305,88 @@ test('a failed library load shows a retry banner and recovers', async ({ page })
   await waitForLibrary(page)
   await addSpriteFromLibrary(page, 'Cat')
   await expect(page.locator('.sprite-row')).toHaveCount(1)
+})
+
+test('the backdrop list chooses which backdrop the game starts on', async ({ page }) => {
+  await addSpriteFromLibrary(page, 'Cat')
+  await chooseBackdrop(page, 'Night')
+
+  // Adding made Night the starting backdrop; the list is where that is visible,
+  // and where it can be changed back.
+  await assetTab(page, 'Backdrops')
+  const rows = page.locator('.backdrop-row')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.filter({ hasText: 'night' })).toContainText('Starts here')
+
+  await rows.filter({ hasText: 'blue-sky' }).getByRole('button', { name: 'Start here' }).click()
+  await expect(rows.filter({ hasText: 'blue-sky' })).toContainText('Starts here')
+  await expect(rows.filter({ hasText: 'night' })).not.toContainText('Starts here')
+
+  // Proof the running game agrees: from blue-sky, `nextBackdrop` lands on night
+  // and fires its event. Had the game still started on night, it would have
+  // wrapped to blue-sky instead and this would never log.
+  await selectTab(page, 'main')
+  await setEditorContent(page, 'onBackdropSwitch("night", () => console.log("now night"))')
+  await selectTab(page, 'Cat')
+  await setEditorContent(page, 'onStart(() => stage.nextBackdrop())')
+
+  await run(page)
+  await expect(consoleLines(page)).toContainText(['now night'])
+  await expect(page.locator('.console .issue')).toHaveCount(0)
+})
+
+test('a backdrop can be renamed, and the last one can never be deleted', async ({ page }) => {
+  await chooseBackdrop(page, 'Night')
+  await assetTab(page, 'Backdrops')
+  const rows = page.locator('.backdrop-row')
+
+  page.once('dialog', dialog => void dialog.accept('evening'))
+  await rows.filter({ hasText: 'night' }).getByRole('button', { name: 'Rename' }).click()
+  await expect(rows.filter({ hasText: 'evening' })).toHaveCount(1)
+
+  await rows.filter({ hasText: 'blue-sky' }).getByRole('button', { name: 'Delete' }).click()
+  await expect(rows).toHaveCount(1)
+
+  // The schema requires a backdrop, so the last row says no rather than
+  // producing a game that cannot be saved or opened.
+  await expect(rows.getByRole('button', { name: 'Delete' })).toBeDisabled()
+  await expect(page.locator('.backdrop-list')).toContainText('at least one backdrop')
+})
+
+test('deleting a sound the code uses warns first, and the game then says so', async ({ page }) => {
+  await addSpriteFromLibrary(page, 'Cat')
+  await chooseSound(page, 'Beep')
+  await setEditorContent(page, 'onStart(() => playSound("beep"))')
+
+  await assetTab(page, 'Sounds')
+  const row = page.locator('.sound-row').filter({ hasText: 'beep' })
+  await expect(row).toHaveCount(1)
+
+  let message = ''
+  page.once('dialog', dialog => {
+    message = dialog.message()
+    void dialog.accept()
+  })
+  await row.getByRole('button', { name: 'Delete' }).click()
+
+  await expect(page.locator('.sound-row')).toHaveCount(0)
+  expect(message).toContain('Your code uses "beep" in Cat')
+
+  await run(page)
+  await expect(page.locator('.console .issue')).toContainText('couldn\'t find a sound called "beep"')
+})
+
+test('a renamed sound plays under its new name', async ({ page }) => {
+  await addSpriteFromLibrary(page, 'Cat')
+  await chooseSound(page, 'Beep')
+
+  await assetTab(page, 'Sounds')
+  page.once('dialog', dialog => void dialog.accept('boop'))
+  await page.locator('.sound-row').getByRole('button', { name: 'Rename' }).click()
+  await expect(page.locator('.sound-row')).toContainText('boop')
+
+  await setEditorContent(page, 'onStart(() => playSound("boop"))')
+  await run(page)
+  await expect(stage(page).locator('canvas')).toBeVisible()
+  await expect(page.locator('.console .issue')).toHaveCount(0)
 })

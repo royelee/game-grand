@@ -11,15 +11,16 @@ import { ScratchAssetLoader, scratchSource } from '../scratchAssets'
 import type { ScratchCatalog } from '../../shared/scratchCatalog'
 import { forgetGame, readRecent, rememberGame } from '../recentGames'
 import { rehydrateAssetStore } from '../rehydrate'
+import { joinTabNames, scriptsReferencing } from '../references'
 import { hasUnsavedWork, initialState, reducer } from '../store'
 import { measureImage, downscale, readFileAsDataUrl } from '../upload'
 import { ApiDrawer } from './ApiDrawer'
+import { AssetPanel } from './AssetPanel'
 import { CodeEditor } from './CodeEditor'
 import { ConsolePane } from './ConsolePane'
 import { LibraryDialog } from './LibraryDialog'
 import { LoadDialog } from './LoadDialog'
 import { SaveBar } from './SaveBar'
-import { SpriteList } from './SpriteList'
 import { StagePanel } from './StagePanel'
 
 // Matched once at mount so a route like `/p/<id>` can be opened directly. The
@@ -119,7 +120,9 @@ export function App() {
 
   const resolver = useMemo(() => (manifest ? makeResolver(store) : null), [manifest, store])
 
-  const costumeUrl = useCallback(
+  // Serves costumes, backdrops and sound previews alike — the store is keyed by
+  // asset source regardless of what kind of asset it holds.
+  const assetUrl = useCallback(
     (source: string) => store.get(source)?.dataUrl ?? '',
     [store],
   )
@@ -215,6 +218,70 @@ export function App() {
         issue: { tab: 'main', line: null, message: err instanceof Error ? err.message : String(err) },
       })
     }
+  }
+
+  /**
+   * Scripts call backdrops and sounds by name — `playSound("meow")` — and
+   * nothing here rewrites code, so renaming or deleting one can quietly break
+   * a game. Warn while the kid still remembers what they were doing, rather
+   * than letting it surface as an error at Run.
+   */
+  const confirmNameChange = (name: string, action: 'rename' | 'delete'): boolean => {
+    const tabs = scriptsReferencing(state.project, name)
+    if (tabs.length === 0) return true
+    const consequence =
+      action === 'delete'
+        ? 'Delete it anyway?'
+        : "It won't find it under the new name. Rename it anyway?"
+    return window.confirm(`Your code uses "${name}" in ${joinTabNames(tabs)}. ${consequence}`)
+  }
+
+  /** Prompt first, then warn: cancelling the prompt costs the kid nothing. */
+  const promptRename = (current: string): string | null => {
+    const to = window.prompt(`Rename "${current}" to:`, current)
+    if (!to || to === current) return null
+    return confirmNameChange(current, 'rename') ? to : null
+  }
+
+  const backdropHandlers = {
+    onAdd: () => setPicking('backdrop'),
+    onStartHere: (index: number) => dispatch({ type: 'set-current-backdrop', index }),
+    onRename: (index: number) => {
+      const to = promptRename(state.project.stage.backdrops[index].name)
+      if (to) dispatch({ type: 'rename-backdrop', index, to })
+    },
+    onDelete: (index: number) => {
+      if (confirmNameChange(state.project.stage.backdrops[index].name, 'delete')) {
+        dispatch({ type: 'delete-backdrop', index })
+      }
+    },
+  }
+
+  const soundHandlers = {
+    onAdd: () => setPicking('sound'),
+    onPlay: (source: string) => {
+      const url = store.get(source)?.dataUrl
+      if (url) void new Audio(url).play().catch(() => {})
+    },
+    onRename: (index: number) => {
+      const to = promptRename(state.project.sounds[index].name)
+      if (to) dispatch({ type: 'rename-sound', index, to })
+    },
+    onDelete: (index: number) => {
+      if (confirmNameChange(state.project.sounds[index].name, 'delete')) {
+        dispatch({ type: 'delete-sound', index })
+      }
+    },
+  }
+
+  const spriteHandlers = {
+    onSelect: (tab: string) => dispatch({ type: 'select-tab', tab }),
+    onAdd: () => setPicking('costume'),
+    onRename: (from: string) => {
+      const to = window.prompt(`Rename "${from}" to:`, from)
+      if (to && to !== from) dispatch({ type: 'rename-sprite', from, to })
+    },
+    onDelete: (name: string) => dispatch({ type: 'delete-sprite', name }),
   }
 
   const handleSave = async () => {
@@ -317,8 +384,6 @@ export function App() {
         )}
         <div className="toolbar">
           <h1>{state.project.name}</h1>
-          <button onClick={() => setPicking('backdrop')} disabled={!manifest}>Backdrop</button>
-          <button onClick={() => setPicking('sound')} disabled={!manifest}>Sounds</button>
           <button className="primary" onClick={run} disabled={!resolver || state.running}>▶ Run</button>
           <button className="danger" onClick={() => dispatch({ type: 'stop' })} disabled={!state.running}>■ Stop</button>
         </div>
@@ -335,6 +400,21 @@ export function App() {
           onIssue={onIssue}
           onLog={onLog}
           onStopped={onStopped}
+        />
+        {/*
+          The panel stays mounted and the dialogs overlay it — which is what
+          `.panel > .drawer { position: absolute; inset: 0 }` already assumes.
+          Keeping it mounted is what lets the kid land back on the tab they
+          added from, with the new backdrop or sound visible in the list.
+        */}
+        <AssetPanel
+          project={state.project}
+          selectedTab={state.selectedTab}
+          assetUrl={assetUrl}
+          ready={manifest !== null}
+          sprites={spriteHandlers}
+          backdrops={backdropHandlers}
+          sounds={soundHandlers}
         />
         {picking && manifest ? (
           <LibraryDialog
@@ -355,20 +435,7 @@ export function App() {
             onForget={handleForget}
             onClose={() => setLoadOpen(false)}
           />
-        ) : (
-          <SpriteList
-            project={state.project}
-            selectedTab={state.selectedTab}
-            costumeUrl={costumeUrl}
-            onSelect={tab => dispatch({ type: 'select-tab', tab })}
-            onAdd={() => manifest && setPicking('costume')}
-            onRename={from => {
-              const to = window.prompt(`Rename "${from}" to:`, from)
-              if (to && to !== from) dispatch({ type: 'rename-sprite', from, to })
-            }}
-            onDelete={name => dispatch({ type: 'delete-sprite', name })}
-          />
-        )}
+        ) : null}
       </div>
 
       <div className="panel">

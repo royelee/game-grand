@@ -29,14 +29,24 @@ button.danger { background: #d34b4b; border-color: #b93f3f; color: #fff; }
 .banner span { flex: 1; }
 .empty-note { color: #7a7f88; font-size: 13px; padding: 4px 2px; }
 .stage-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #7a7f88; font-size: 14px; }
-/* `min-height` keeps "+ Add sprite" reachable once the fixed 384px stage has
-   taken its share. Below roughly a 520px viewport the panel clips instead. */
-.sprite-list { flex: 1 1 0; min-height: 88px; overflow: auto; padding: 8px 12px; border-top: 1px solid var(--border); }
-.sprite-list h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin: 4px 0 8px; }
-.sprite-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; }
-.sprite-row.selected { background: #e8effc; }
-.sprite-row img { width: 28px; height: 28px; object-fit: contain; }
-.sprite-row span { flex: 1; font-size: 14px; }
+/* `min-height` keeps the tab bar and "+ Add" reachable once the fixed 384px
+   stage has taken its share. Below roughly a 520px viewport the panel clips
+   instead. The tabs hold their height; only the list underneath scrolls. */
+.asset-panel { flex: 1 1 0; min-height: 88px; display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.asset-tabs { flex: none; display: flex; gap: 4px; padding: 8px 12px 0; }
+.asset-tabs button { font-size: 13px; padding: 4px 10px; }
+.asset-tabs button.active { background: #1f2937; border-color: #1f2937; color: #fff; }
+.asset-list { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px; }
+.asset-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; }
+.sprite-row { cursor: pointer; }
+.asset-row.selected { background: #e8effc; }
+.asset-row img { width: 28px; height: 28px; object-fit: contain; }
+.asset-row span { flex: 1; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.asset-row button { padding: 4px 8px; font-size: 13px; }
+/* Sized to match a button so a row's height doesn't jump as the starting
+   backdrop moves from one row to another. */
+.asset-badge { font-size: 12px; font-style: normal; color: #1f7a3d; white-space: nowrap; padding: 4px 2px; }
+.sound-play { white-space: nowrap; }
 .tabs { display: flex; gap: 4px; padding: 8px 12px 0; overflow-x: auto; }
 .tab { padding: 6px 12px; border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; background: var(--bg); cursor: pointer; white-space: nowrap; }
 .tab.active { background: #fff; font-weight: 600; }

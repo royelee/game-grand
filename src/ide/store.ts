@@ -1,5 +1,6 @@
 import {
-  addBackdrop, addSound, addSprite, createEmptyProject, deleteSprite, renameSprite, setScript,
+  addBackdrop, addSound, addSprite, createEmptyProject, deleteBackdrop, deleteSound,
+  deleteSprite, renameBackdrop, renameSound, renameSprite, setCurrentBackdrop, setScript,
   uniqueSpriteName, type AssetRef, type Project,
 } from '../shared/project'
 import type { ScriptIssue } from '../runtime/executor'
@@ -26,6 +27,11 @@ export type IdeAction =
   | { type: 'add-sprite'; name: string; costumes: AssetRef[] }
   | { type: 'add-backdrop'; ref: AssetRef }
   | { type: 'add-sound'; ref: AssetRef }
+  | { type: 'set-current-backdrop'; index: number }
+  | { type: 'rename-backdrop'; index: number; to: string }
+  | { type: 'delete-backdrop'; index: number }
+  | { type: 'rename-sound'; index: number; to: string }
+  | { type: 'delete-sound'; index: number }
   | { type: 'delete-sprite'; name: string }
   | { type: 'rename-sprite'; from: string; to: string }
   | { type: 'set-script'; tab: string; script: string }
@@ -71,6 +77,26 @@ function issueText(issue: ScriptIssue): string {
     : `In ${issue.tab}, line ${issue.line}: ${issue.message}`
 }
 
+/**
+ * Runs an edit that is allowed to refuse — a name collision, the project's last
+ * backdrop — and turns the refusal into a console line, leaving the project
+ * untouched. `rename-sprite` established the shape; the backdrop and sound
+ * edits share it.
+ */
+function tryEdit(state: IdeState, edit: () => IdeState): IdeState {
+  try {
+    return edit()
+  } catch (err) {
+    return {
+      ...state,
+      console: pushLine(state.console, {
+        kind: 'issue',
+        text: err instanceof Error ? err.message : String(err),
+      }),
+    }
+  }
+}
+
 function applyAction(state: IdeState, action: IdeAction): IdeState {
   switch (action.type) {
     case 'select-tab':
@@ -91,6 +117,30 @@ function applyAction(state: IdeState, action: IdeAction): IdeState {
     case 'add-sound':
       return { ...state, project: addSound(state.project, action.ref) }
 
+    case 'set-current-backdrop':
+      return { ...state, project: setCurrentBackdrop(state.project, action.index) }
+
+    case 'rename-backdrop':
+      return tryEdit(state, () => ({
+        ...state,
+        project: renameBackdrop(state.project, action.index, action.to),
+      }))
+
+    case 'delete-backdrop':
+      return tryEdit(state, () => ({
+        ...state,
+        project: deleteBackdrop(state.project, action.index),
+      }))
+
+    case 'rename-sound':
+      return tryEdit(state, () => ({
+        ...state,
+        project: renameSound(state.project, action.index, action.to),
+      }))
+
+    case 'delete-sound':
+      return { ...state, project: deleteSound(state.project, action.index) }
+
     case 'delete-sprite':
       return {
         ...state,
@@ -99,21 +149,11 @@ function applyAction(state: IdeState, action: IdeAction): IdeState {
       }
 
     case 'rename-sprite':
-      try {
-        return {
-          ...state,
-          project: renameSprite(state.project, action.from, action.to),
-          selectedTab: state.selectedTab === action.from ? action.to : state.selectedTab,
-        }
-      } catch (err) {
-        return {
-          ...state,
-          console: [
-            ...state.console,
-            { kind: 'issue', text: err instanceof Error ? err.message : String(err) },
-          ],
-        }
-      }
+      return tryEdit(state, () => ({
+        ...state,
+        project: renameSprite(state.project, action.from, action.to),
+        selectedTab: state.selectedTab === action.from ? action.to : state.selectedTab,
+      }))
 
     case 'set-script':
       return { ...state, project: setScript(state.project, action.tab, action.script) }
@@ -179,7 +219,8 @@ function applyAction(state: IdeState, action: IdeAction): IdeState {
  */
 const EDITING_ACTIONS = new Set([
   'add-sprite', 'add-backdrop', 'add-sound', 'delete-sprite', 'rename-sprite',
-  'set-script', 'rename-project',
+  'set-script', 'rename-project', 'set-current-backdrop', 'rename-backdrop',
+  'delete-backdrop', 'rename-sound', 'delete-sound',
 ])
 
 /**
@@ -194,6 +235,10 @@ const INVALIDATES_SAVE = new Set([...EDITING_ACTIONS, 'project-loaded'])
 export function reducer(state: IdeState, action: IdeAction): IdeState {
   const next = applyAction(state, action)
   if (!INVALIDATES_SAVE.has(action.type)) return next
+  // An edit that refused — a name collision, the project's last backdrop — or
+  // one that was already true, like adding a sound the game has. The document
+  // is untouched, so nothing about the saved game has gone stale.
+  if (next.project === state.project) return next
   const bumped = { ...next, saveToken: next.saveToken + 1 }
   if (bumped.save.status === 'saved' && EDITING_ACTIONS.has(action.type)) {
     return { ...bumped, save: { status: 'idle', message: null } }

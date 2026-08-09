@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createEmptyProject, addSprite, renameSprite, deleteSprite, setScript,
   uniqueSpriteName, addBackdrop, addSound, toRunPayload, RESERVED_TAB_NAMES,
+  setCurrentBackdrop, renameBackdrop, deleteBackdrop, renameSound, deleteSound,
   type AssetRef, type Project,
 } from './project'
 import type { LoadedCostume } from './protocol'
@@ -134,5 +135,94 @@ describe('unique asset names', () => {
       { name: 'shark-a', source: 'scratch:2.svg' },
     ])
     expect(p.sprites[0].costumes.map(c => c.name)).toEqual(['shark-a', 'shark-a2'])
+  })
+})
+
+/** A project whose backdrops are `blue-sky, night, cave`, starting on `night`. */
+function threeBackdrops(): Project {
+  let p = addBackdrop(createEmptyProject(), { name: 'night', source: 'library:night' })
+  p = addBackdrop(p, { name: 'cave', source: 'library:cave' })
+  return setCurrentBackdrop(p, 1)
+}
+
+describe('managing backdrops', () => {
+  it('changes which backdrop the game starts on', () => {
+    const p = setCurrentBackdrop(threeBackdrops(), 2)
+    expect(p.stage.currentBackdrop).toBe(2)
+  })
+
+  it('ignores an out-of-range index rather than corrupting the pointer', () => {
+    const p = threeBackdrops()
+    expect(setCurrentBackdrop(p, 9).stage.currentBackdrop).toBe(1)
+    expect(setCurrentBackdrop(p, -1).stage.currentBackdrop).toBe(1)
+  })
+
+  it('renames a backdrop in place', () => {
+    const p = renameBackdrop(threeBackdrops(), 1, 'evening')
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'evening', 'cave'])
+    expect(p.stage.backdrops[1].source).toBe('library:night')
+  })
+
+  it('rejects renaming a backdrop onto a name another backdrop already has', () => {
+    expect(() => renameBackdrop(threeBackdrops(), 1, 'cave')).toThrow(/already/)
+  })
+
+  it('lets a backdrop keep its own name', () => {
+    const p = renameBackdrop(threeBackdrops(), 1, 'night')
+    expect(p.stage.backdrops[1].name).toBe('night')
+  })
+
+  it('shifts the pointer down when a backdrop before the current one goes', () => {
+    const p = deleteBackdrop(threeBackdrops(), 0)
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['night', 'cave'])
+    expect(p.stage.currentBackdrop).toBe(0)
+  })
+
+  it('leaves the pointer alone when a backdrop after the current one goes', () => {
+    const p = deleteBackdrop(threeBackdrops(), 2)
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'night'])
+    expect(p.stage.currentBackdrop).toBe(1)
+  })
+
+  it('lands on whatever slid into the slot when the current backdrop goes', () => {
+    const p = deleteBackdrop(threeBackdrops(), 1)
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'cave'])
+    expect(p.stage.currentBackdrop).toBe(1)
+  })
+
+  it('lands on the new last row when the current backdrop was the last one', () => {
+    const p = deleteBackdrop(setCurrentBackdrop(threeBackdrops(), 2), 2)
+    expect(p.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'night'])
+    expect(p.stage.currentBackdrop).toBe(1)
+  })
+
+  it('refuses to delete the only backdrop, because the schema requires one', () => {
+    expect(() => deleteBackdrop(createEmptyProject(), 0)).toThrow(/at least one/)
+  })
+})
+
+describe('managing sounds', () => {
+  function twoSounds(): Project {
+    let p = addSound(createEmptyProject(), { name: 'meow', source: 'library:meow' })
+    return addSound(p, { name: 'pop', source: 'library:pop' })
+  }
+
+  it('renames a sound in place', () => {
+    const p = renameSound(twoSounds(), 0, 'cat noise')
+    expect(p.sounds.map(s => s.name)).toEqual(['cat noise', 'pop'])
+    expect(p.sounds[0].source).toBe('library:meow')
+  })
+
+  it('rejects renaming a sound onto a name another sound already has', () => {
+    expect(() => renameSound(twoSounds(), 0, 'pop')).toThrow(/already/)
+  })
+
+  it('deletes a sound by index', () => {
+    const p = deleteSound(twoSounds(), 0)
+    expect(p.sounds.map(s => s.name)).toEqual(['pop'])
+  })
+
+  it('can empty the sounds list — unlike backdrops, none is a valid state', () => {
+    expect(deleteSound(deleteSound(twoSounds(), 0), 0).sounds).toEqual([])
   })
 })

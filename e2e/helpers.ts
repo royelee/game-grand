@@ -5,15 +5,43 @@ export async function waitForLibrary(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: '▶ Run' })).toBeEnabled()
 }
 
+/**
+ * Switch the asset panel to one of its tabs.
+ *
+ * Scoped to `.asset-tabs`: the library dialog stays mounted over the panel and
+ * carries tab buttons with the very same labels, so an unscoped match is
+ * ambiguous.
+ */
+export async function assetTab(
+  page: Page,
+  label: 'Sprites' | 'Backdrops' | 'Sounds',
+): Promise<void> {
+  await page.locator('.asset-tabs button', { hasText: new RegExp(`^${label}$`) }).click()
+}
+
 /** Add a sprite from the built-in library by its label. */
 export async function addSpriteFromLibrary(page: Page, label: string): Promise<void> {
+  await assetTab(page, 'Sprites')
   await page.getByRole('button', { name: '+ Add sprite' }).click()
   await pickFromLibrary(page, label)
 }
 
 /** Choose a backdrop from the built-in library by its label. */
 export async function chooseBackdrop(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: 'Backdrop' }).click()
+  await assetTab(page, 'Backdrops')
+  await page.getByRole('button', { name: '+ Add backdrop' }).click()
+  await pickFromLibrary(page, label)
+}
+
+/** Open the sound picker, for tests that upload rather than pick a built-in. */
+export async function openSoundPicker(page: Page): Promise<void> {
+  await assetTab(page, 'Sounds')
+  await page.getByRole('button', { name: '+ Add sound' }).click()
+}
+
+/** Choose a sound from the built-in library by its label. */
+export async function chooseSound(page: Page, label: string): Promise<void> {
+  await openSoundPicker(page)
   await pickFromLibrary(page, label)
 }
 

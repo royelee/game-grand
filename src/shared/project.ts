@@ -97,6 +97,61 @@ export function addSound(project: Project, ref: AssetRef): Project {
   return { ...project, sounds: [...project.sounds, named] }
 }
 
+/*
+ * Backdrops and sounds are addressed by index rather than by name.
+ * `validateProject` enforces unique *sprite* names but never checks these two
+ * lists, so a stored document can legitimately hold two backdrops called the
+ * same thing — and those are exactly the projects that most need fixing here.
+ */
+
+/** Chooses the backdrop the game starts on. An out-of-range index is ignored. */
+export function setCurrentBackdrop(project: Project, index: number): Project {
+  if (index < 0 || index >= project.stage.backdrops.length) return project
+  return { ...project, stage: { ...project.stage, currentBackdrop: index } }
+}
+
+function renamedAt(refs: AssetRef[], index: number, to: string, kind: string): AssetRef[] {
+  if (refs.some((ref, i) => i !== index && ref.name === to)) {
+    throw new Error(`A ${kind} named "${to}" already exists.`)
+  }
+  return refs.map((ref, i) => (i === index ? { ...ref, name: to } : ref))
+}
+
+export function renameBackdrop(project: Project, index: number, to: string): Project {
+  const backdrops = renamedAt(project.stage.backdrops, index, to, 'backdrop')
+  return { ...project, stage: { ...project.stage, backdrops } }
+}
+
+export function renameSound(project: Project, index: number, to: string): Project {
+  return { ...project, sounds: renamedAt(project.sounds, index, to, 'sound') }
+}
+
+/**
+ * Removes a backdrop, keeping `currentBackdrop` a valid index — the schema
+ * rejects a project pointing at a backdrop it doesn't have. Deleting the
+ * current one lands on whatever slid into its slot, or on the new last row if
+ * it was the last. The stage must always keep at least one backdrop.
+ */
+export function deleteBackdrop(project: Project, index: number): Project {
+  const { backdrops, currentBackdrop } = project.stage
+  if (backdrops.length <= 1) {
+    throw new Error('Your game needs at least one backdrop, so this one can’t be deleted.')
+  }
+  const remaining = backdrops.filter((_, i) => i !== index)
+  const current =
+    index < currentBackdrop
+      ? currentBackdrop - 1
+      : index === currentBackdrop
+        ? Math.min(index, remaining.length - 1)
+        : currentBackdrop
+  return { ...project, stage: { backdrops: remaining, currentBackdrop: current } }
+}
+
+/** Removes a sound. Unlike backdrops, an empty sounds list is a valid project. */
+export function deleteSound(project: Project, index: number): Project {
+  return { ...project, sounds: project.sounds.filter((_, i) => i !== index) }
+}
+
 export function setScript(project: Project, tab: string, script: string): Project {
   if (tab === 'main') return { ...project, mainScript: script }
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasUnsavedWork, initialState, reducer, MAX_CONSOLE_LINES } from './store'
+import { hasUnsavedWork, initialState, reducer, MAX_CONSOLE_LINES, type IdeState } from './store'
 import { createEmptyProject, addSprite, type AssetRef } from '../shared/project'
 
 const costume: AssetRef = { name: 'cat-a', source: 'library:cat-a' }
@@ -249,5 +249,68 @@ describe('hasUnsavedWork', () => {
       type: 'project-loaded', id: 'xyz', project: loaded,
     })
     expect(hasUnsavedWork(s)).toBe(false)
+  })
+})
+
+describe('managing backdrops and sounds', () => {
+  /** Backdrops `blue-sky, night`; sounds `meow, pop`. Saved, so edits show as dirty. */
+  function saved(): IdeState {
+    let s = reducer(withCat(), { type: 'add-backdrop', ref: { name: 'night', source: 'library:night' } })
+    s = reducer(s, { type: 'add-sound', ref: { name: 'meow', source: 'library:meow' } })
+    s = reducer(s, { type: 'add-sound', ref: { name: 'pop', source: 'library:pop' } })
+    return reducer(s, { type: 'saved', id: 'abc123', token: s.saveToken })
+  }
+
+  it('changes which backdrop the game starts on, and marks the game unsaved', () => {
+    const s = reducer(saved(), { type: 'set-current-backdrop', index: 0 })
+    expect(s.project.stage.currentBackdrop).toBe(0)
+    expect(s.save.status).toBe('idle')
+  })
+
+  it('renames a backdrop', () => {
+    const s = reducer(saved(), { type: 'rename-backdrop', index: 1, to: 'evening' })
+    expect(s.project.stage.backdrops.map(b => b.name)).toEqual(['blue-sky', 'evening'])
+    expect(s.save.status).toBe('idle')
+  })
+
+  it('deletes a backdrop and keeps the pointer valid', () => {
+    const s = reducer(saved(), { type: 'delete-backdrop', index: 1 })
+    expect(s.project.stage.backdrops.map(b => b.name)).toEqual(['blue-sky'])
+    expect(s.project.stage.currentBackdrop).toBe(0)
+  })
+
+  it('renames and deletes a sound', () => {
+    let s = reducer(saved(), { type: 'rename-sound', index: 0, to: 'cat noise' })
+    expect(s.project.sounds.map(x => x.name)).toEqual(['cat noise', 'pop'])
+    s = reducer(s, { type: 'delete-sound', index: 0 })
+    expect(s.project.sounds.map(x => x.name)).toEqual(['pop'])
+  })
+
+  it('reports a colliding backdrop rename and leaves the project alone', () => {
+    const before = saved()
+    const s = reducer(before, { type: 'rename-backdrop', index: 1, to: 'blue-sky' })
+    expect(s.project).toBe(before.project)
+    expect(s.console.at(-1)?.kind).toBe('issue')
+  })
+
+  it('reports a refused delete of the only backdrop', () => {
+    const before = reducer(withCat(), { type: 'saved', id: 'abc123', token: 0 })
+    const s = reducer(before, { type: 'delete-backdrop', index: 0 })
+    expect(s.project.stage.backdrops).toHaveLength(1)
+    expect(s.console.at(-1)?.text).toMatch(/at least one/)
+  })
+
+  it('does not mark a saved game unsaved when the edit was refused', () => {
+    const before = saved()
+    const s = reducer(before, { type: 'rename-sound', index: 0, to: 'pop' })
+    expect(s.project).toBe(before.project)
+    expect(s.console.at(-1)?.kind).toBe('issue')
+    expect(s.save.status).toBe('saved')
+    expect(s.saveToken).toBe(before.saveToken)
+  })
+
+  it('does not mark a saved game unsaved when a sound it already has is added again', () => {
+    const s = reducer(saved(), { type: 'add-sound', ref: { name: 'meow', source: 'library:meow' } })
+    expect(s.save.status).toBe('saved')
   })
 })
