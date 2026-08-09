@@ -142,3 +142,48 @@ describe('rehydrateAssetStore', () => {
     expect(result.additions.has('data:image/png;base64,AAA')).toBe(false)
   })
 })
+
+describe('scratch refs', () => {
+  const measureStub = async () => ({ width: 4, height: 4 })
+  const project = {
+    version: 1,
+    name: 'g',
+    sprites: [{
+      name: 'Abby', x: 0, y: 0, size: 100, direction: 90, visible: true,
+      costumes: [{ name: 'abby-a', source: 'scratch:a1.svg' }],
+      currentCostume: 0, script: '',
+    }],
+    stage: { backdrops: [{ name: 'blue-sky', source: 'library:blue-sky' }], currentBackdrop: 0 },
+    sounds: [{ name: 'pop', source: 'scratch:s1.wav' }],
+    mainScript: '',
+  } as unknown as Project
+
+  const fakeLoader = {
+    load: async (md5ext: string) => ({ dataUrl: `data:fake,${md5ext}`, width: 10, height: 20 }),
+  }
+
+  it('fetches every scratch asset the project references', async () => {
+    const { additions, issues } = await rehydrateAssetStore(project, measureStub, fakeLoader)
+    expect(issues).toEqual([])
+    expect(additions.get('scratch:a1.svg')).toEqual({ dataUrl: 'data:fake,a1.svg', width: 10, height: 20 })
+    expect(additions.get('scratch:s1.wav')).toEqual({ dataUrl: 'data:fake,s1.wav', width: 10, height: 20 })
+  })
+
+  it('leaves library refs to preloadLibrary', async () => {
+    const { additions } = await rehydrateAssetStore(project, measureStub, fakeLoader)
+    expect(additions.has('library:blue-sky')).toBe(false)
+  })
+
+  it('reports a failed download and still opens the rest of the game', async () => {
+    const failing = {
+      load: async (md5ext: string) => {
+        if (md5ext === 'a1.svg') throw new Error('offline')
+        return { dataUrl: 'data:fake,ok', width: 1, height: 1 }
+      },
+    }
+    const { additions, issues } = await rehydrateAssetStore(project, measureStub, failing)
+    expect(issues).toHaveLength(1)
+    expect(issues[0].message).toMatch(/Scratch library/i)
+    expect(additions.has('scratch:s1.wav')).toBe(true)
+  })
+})
