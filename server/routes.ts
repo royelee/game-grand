@@ -37,7 +37,14 @@ export function registerProjectRoutes(app: FastifyInstance, deps: RouteDeps): vo
     if (!found) {
       return reply.code(404).send({ error: "We couldn't find a game with that link." })
     }
-    return reply.type('application/json').send(found.document)
+    // The body is attacker-authored (a sprite script is an arbitrary string
+    // someone typed) and this is a plain, navigable URL. `nosniff` stops a
+    // browser that ignores the declared JSON type from guessing its way into
+    // treating the response as HTML and running it.
+    return reply
+      .header('X-Content-Type-Options', 'nosniff')
+      .type('application/json')
+      .send(found.document)
   })
 
   app.put<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {

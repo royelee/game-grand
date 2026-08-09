@@ -78,6 +78,12 @@ describe('GET /api/projects/:id', () => {
     expect(res.statusCode).toBe(404)
     expect(res.json().error).toMatch(/couldn't find/i)
   })
+
+  it('sends X-Content-Type-Options: nosniff, since the body is attacker-authored', async () => {
+    const { id } = (await create(project())).json()
+    const res = await app.inject({ method: 'GET', url: `/api/projects/${id}` })
+    expect(res.headers['x-content-type-options']).toBe('nosniff')
+  })
 })
 
 describe('PUT /api/projects/:id', () => {
