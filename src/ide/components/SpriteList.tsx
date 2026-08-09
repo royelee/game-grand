@@ -16,7 +16,7 @@ export function SpriteList({
   return (
     <div className="sprite-list">
       <h2>Sprites</h2>
-      {project.sprites.length === 0 && <p className="stage-empty">No sprites yet.</p>}
+      {project.sprites.length === 0 && <p className="empty-note">No sprites yet.</p>}
       {project.sprites.map(sprite => (
         <div
           key={sprite.name}

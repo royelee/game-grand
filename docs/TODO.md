@@ -2,6 +2,10 @@
 
 Items intentionally left out of v1, to follow up later.
 
+## Plan 3 (server) hard requirement
+
+- [ ] **The server must send `Access-Control-Allow-Origin: *` for `runtime.html` and its bundle.** The stage runs in `<iframe sandbox="allow-scripts">`, which gives it an opaque (`null`) origin, and module scripts are always fetched in CORS mode. Without the header the iframe cannot load its own JavaScript and the stage stays blank — this was caught by the e2e suite, not by unit tests or review. Vite's dev and preview servers are configured for it in `vite.config.ts`; a production server must do the same.
+
 ## Plan 2 contract notes (from Plan 1 final review)
 
 - **One run = one fresh `World` + `Executor`.** `Executor.run()` has no teardown; calling it twice on the same World double-registers every handler and watch. The iframe-restart-per-Run design guarantees this naturally — do not reuse a World across runs.
@@ -15,6 +19,9 @@ Items intentionally left out of v1, to follow up later.
 - [ ] `display()` routes Error instances through JSON.stringify, losing `message` (src/runtime/display.ts) — special-case `Error`.
 - [ ] Orphaned sprite scripts (no matching sprite) are silently skipped by `Executor.run()` — consider emitting a ScriptIssue.
 - [ ] `npm audit`: 5 vulns in transitive dev deps (1 critical) at scaffold time — maintenance pass.
+- [ ] Uploaded images are recorded at their downscaled dimensions but the original full-resolution bytes are still sent into the iframe; re-encode on upload to shrink payloads.
+- [ ] `searchApi` does not search example text (e.g. searching "beep" won't surface `playSound`).
+- [ ] Some API examples reference sprites a fresh project lacks (`sprite.touching("Bat")`), so Insert-example can throw when run before that sprite exists.
 
 - [ ] **Export project to file / Import from file** — download and restore a project as a `.json` file (deferred from v1 top bar; v1 is localStorage save/load only).
 - [ ] **Costume editor (Phase 2)** — in-app paint/pixel editor for drawing sprite costumes and backdrops.

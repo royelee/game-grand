@@ -138,7 +138,7 @@ One JSON document per project — same shape in transit, in SQLite, and in any f
 - **Vitest** unit tests for the API wrapper — the core surface: timing (`glide` resolves after its duration), sensing (`touching` detects overlap), validation (friendly messages) — using Phaser's headless mode.
 - **Vitest** tests for server endpoints against in-memory SQLite.
 - Light component tests for the React shell only where logic lives (save flow, tab switching).
-- Playwright end-to-end: deferred (docs/TODO.md).
+- **Playwright end-to-end** (`e2e/`): drives the real IDE in Chromium — add a sprite, edit code, Run, assert on stage/console, Stop, clones, sounds, backdrops, library-failure recovery. This layer caught bugs the unit tests structurally could not (the sandboxed iframe's CORS failure, unrunnable `await` examples).
 
 ## Phasing
 

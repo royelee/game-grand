@@ -91,6 +91,11 @@ export function addBackdrop(project: Project, ref: AssetRef): Project {
   return { ...project, stage: { backdrops, currentBackdrop: backdrops.length - 1 } }
 }
 
+export function addSound(project: Project, ref: AssetRef): Project {
+  if (project.sounds.some(s => s.source === ref.source)) return project
+  return { ...project, sounds: [...project.sounds, ref] }
+}
+
 export function setScript(project: Project, tab: string, script: string): Project {
   if (tab === 'main') return { ...project, mainScript: script }
   return {

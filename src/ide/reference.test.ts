@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { searchApi, groupByCategory, CATEGORY_ORDER } from './reference'
+import { searchApi, groupByCategory, exampleSnippet, CATEGORY_ORDER } from './reference'
 import { API_DEFS } from '../shared/apiDefs'
 
 describe('reference search', () => {
@@ -34,5 +34,28 @@ describe('grouping', () => {
   it('keeps every def exactly once', () => {
     const total = groupByCategory(API_DEFS).reduce((n, g) => n + g.defs.length, 0)
     expect(total).toBe(API_DEFS.length)
+  })
+})
+
+describe('exampleSnippet', () => {
+  it('leaves examples that already run alone', () => {
+    const move = API_DEFS.find(d => d.name === 'move')!
+    expect(exampleSnippet(move)).toBe('sprite.move(10)')
+    const onStart = API_DEFS.find(d => d.name === 'onStart')!
+    expect(exampleSnippet(onStart)).toBe(onStart.example)
+  })
+
+  it('wraps top-level await in a handler, because scripts are not async', () => {
+    const glide = API_DEFS.find(d => d.name === 'glide')!
+    expect(exampleSnippet(glide)).toBe(
+      'onStart(async () => {\n  await sprite.glide(100, 100, 1)\n})',
+    )
+  })
+
+  it('leaves no top-level await anywhere in the library', () => {
+    for (const def of API_DEFS) {
+      const firstLine = exampleSnippet(def).split('\n')[0]
+      expect(firstLine.startsWith('await'), def.name).toBe(false)
+    }
   })
 })

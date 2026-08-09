@@ -19,27 +19,30 @@ export function App() {
   const [manifest, setManifest] = useState<LibraryManifest | null>(null)
   const [store, setStore] = useState<AssetStore>(new Map())
   const [payload, setPayload] = useState<RunPayload | null>(null)
-  const [picking, setPicking] = useState<'costume' | 'backdrop' | null>(null)
+  const [picking, setPicking] = useState<'costume' | 'backdrop' | 'sound' | null>(null)
+  const [libraryError, setLibraryError] = useState<string | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [showApi, setShowApi] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
+        setLibraryError(null)
         const m = await loadManifest()
         const loaded = await preloadLibrary(m)
         if (cancelled) return
         setManifest(m)
         setStore(prev => new Map([...prev, ...loaded]))
       } catch (err) {
-        dispatch({
-          type: 'issue',
-          issue: { tab: 'main', line: null, message: err instanceof Error ? err.message : String(err) },
-        })
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : String(err)
+        setLibraryError(message)
+        dispatch({ type: 'issue', issue: { tab: 'main', line: null, message } })
       }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [loadAttempt])
 
   const resolver = useMemo(() => (manifest ? makeResolver(store) : null), [manifest, store])
 
@@ -70,7 +73,9 @@ export function App() {
   }
 
   const pickFromLibrary = (entry: LibraryEntry) => {
-    if (picking === 'backdrop') {
+    if (picking === 'sound') {
+      dispatch({ type: 'add-sound', ref: refsForEntry(entry) })
+    } else if (picking === 'backdrop') {
       dispatch({ type: 'add-backdrop', ref: refsForEntry(entry) })
     } else {
       dispatch({ type: 'add-sprite', name: entry.label.split(' ')[0], costumes: [refsForEntry(entry)] })
@@ -86,7 +91,8 @@ export function App() {
       // The store learns the dimensions; the ref stays pure identity.
       setStore(prev => new Map(prev).set(dataUrl, { dataUrl, ...size }))
       const ref: AssetRef = { name: file.name.replace(/\.[^.]+$/, ''), source: dataUrl }
-      if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
+      if (picking === 'sound') dispatch({ type: 'add-sound', ref })
+      else if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
       else dispatch({ type: 'add-sprite', name: ref.name, costumes: [ref] })
       setPicking(null)
     } catch (err) {
@@ -110,9 +116,16 @@ export function App() {
         <div className="toolbar">
           <h1>{state.project.name}</h1>
           <button onClick={() => setPicking('backdrop')} disabled={!manifest}>Backdrop</button>
+          <button onClick={() => setPicking('sound')} disabled={!manifest}>Sounds</button>
           <button className="primary" onClick={run} disabled={!resolver || state.running}>▶ Run</button>
           <button className="danger" onClick={() => dispatch({ type: 'stop' })} disabled={!state.running}>■ Stop</button>
         </div>
+        {libraryError && (
+          <div className="banner">
+            <span>The sprite library didn’t load, so you can’t add sprites yet.</span>
+            <button onClick={() => setLoadAttempt(n => n + 1)}>Try again</button>
+          </div>
+        )}
         <StagePanel
           runId={state.runId}
           running={state.running}
@@ -136,7 +149,7 @@ export function App() {
             selectedTab={state.selectedTab}
             costumeUrl={costumeUrl}
             onSelect={tab => dispatch({ type: 'select-tab', tab })}
-            onAdd={() => setPicking('costume')}
+            onAdd={() => manifest && setPicking('costume')}
             onRename={from => {
               const to = window.prompt(`Rename "${from}" to:`, from)
               if (to && to !== from) dispatch({ type: 'rename-sprite', from, to })

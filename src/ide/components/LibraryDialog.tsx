@@ -3,7 +3,7 @@ import type { AssetStore, LibraryEntry, LibraryManifest } from '../library'
 interface Props {
   manifest: LibraryManifest
   store: AssetStore
-  kind: 'costume' | 'backdrop'
+  kind: 'costume' | 'backdrop' | 'sound'
   onPick: (entry: LibraryEntry) => void
   onUpload: (file: File) => void
   onClose: () => void
@@ -12,14 +12,25 @@ interface Props {
 export function LibraryDialog({ manifest, store, kind, onPick, onUpload, onClose }: Props) {
   const entries = manifest.entries.filter(e => e.kind === kind)
   return (
-    <div className="drawer">
+    <div className="drawer library-dialog">
       <div className="toolbar">
         <h1>Choose a {kind}</h1>
         <button onClick={onClose}>Close</button>
       </div>
       {entries.map(entry => (
-        <div className="api-entry" key={entry.id}>
-          <img src={store.get(`library:${entry.id}`)?.dataUrl} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+        <div className="library-entry" key={entry.id}>
+          {kind === 'sound' ? (
+            <button
+              onClick={() => {
+                const url = store.get(`library:${entry.id}`)?.dataUrl
+                if (url) void new Audio(url).play().catch(() => {})
+              }}
+            >
+              ▶ Play
+            </button>
+          ) : (
+            <img src={store.get(`library:${entry.id}`)?.dataUrl} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+          )}
           <p>{entry.label}</p>
           <button onClick={() => onPick(entry)}>Use this</button>
         </div>
@@ -27,7 +38,7 @@ export function LibraryDialog({ manifest, store, kind, onPick, onUpload, onClose
       <h3>Or upload your own</h3>
       <input
         type="file"
-        accept="image/png,image/jpeg,image/svg+xml"
+        accept={kind === 'sound' ? 'audio/*' : 'image/png,image/jpeg,image/svg+xml'}
         onChange={e => {
           const file = e.target.files?.[0]
           if (file) onUpload(file)

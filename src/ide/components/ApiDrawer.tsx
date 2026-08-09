@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { groupByCategory, searchApi } from '../reference'
+import { exampleSnippet, groupByCategory, searchApi } from '../reference'
 
 interface Props {
   onInsert: (example: string) => void
@@ -16,7 +16,7 @@ export function ApiDrawer({ onInsert }: Props) {
         placeholder="Search the API…"
         onChange={e => setQuery(e.target.value)}
       />
-      {groups.length === 0 && <p className="stage-empty">Nothing matches "{query}".</p>}
+      {groups.length === 0 && <p className="empty-note">Nothing matches "{query}".</p>}
       {groups.map(group => (
         <section key={group.category}>
           <h3>{group.category}</h3>
@@ -24,7 +24,7 @@ export function ApiDrawer({ onInsert }: Props) {
             <div className="api-entry" key={`${def.category}-${def.name}`}>
               <code>{def.signature}</code>
               <p>{def.description}</p>
-              <button onClick={() => onInsert(def.example)}>Insert example</button>
+              <button onClick={() => onInsert(exampleSnippet(def))}>Insert example</button>
             </div>
           ))}
         </section>

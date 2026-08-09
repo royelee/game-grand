@@ -1,5 +1,5 @@
 import {
-  addBackdrop, addSprite, deleteSprite, renameSprite, setScript, uniqueSpriteName,
+  addBackdrop, addSound, addSprite, deleteSprite, renameSprite, setScript, uniqueSpriteName,
   type AssetRef, type Project,
 } from '../shared/project'
 import type { ScriptIssue } from '../runtime/executor'
@@ -21,6 +21,7 @@ export type IdeAction =
   | { type: 'select-tab'; tab: string }
   | { type: 'add-sprite'; name: string; costumes: AssetRef[] }
   | { type: 'add-backdrop'; ref: AssetRef }
+  | { type: 'add-sound'; ref: AssetRef }
   | { type: 'delete-sprite'; name: string }
   | { type: 'rename-sprite'; from: string; to: string }
   | { type: 'set-script'; tab: string; script: string }
@@ -56,6 +57,9 @@ export function reducer(state: IdeState, action: IdeAction): IdeState {
 
     case 'add-backdrop':
       return { ...state, project: addBackdrop(state.project, action.ref) }
+
+    case 'add-sound':
+      return { ...state, project: addSound(state.project, action.ref) }
 
     case 'delete-sprite':
       return {
