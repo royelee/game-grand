@@ -3,6 +3,7 @@ import { STAGE_WIDTH, STAGE_HEIGHT } from '../runtime/spriteModel'
 import { RuntimeSession } from './session'
 import { reconcile, toStageX, toStageY, type SpriteView } from './spriteViews'
 import { keyName } from './keys'
+import { buildTextureIndex, type TextureIndex } from './textureKeys'
 import type { RunPayload } from '../shared/protocol'
 
 interface SpriteEntry {
@@ -17,18 +18,30 @@ export class StageScene extends Phaser.Scene {
   private watchText: Phaser.GameObjects.Text | null = null
   private audio = new Map<string, string>()
   private playing = new Set<HTMLAudioElement>()
+  // A costume name is only unique per sprite, so an uploaded costume can
+  // collide with a library one of the same name; textures are keyed by
+  // content (dataUrl) instead, and this resolves a snapshot's costume name
+  // back to the right key. Built once from the payload — clones share their
+  // original's name, so this mapping (which only knows originals) still
+  // resolves for them.
+  private textureIndex: TextureIndex
+  // sprite id -> sprite name, refreshed every render from the live snapshot
+  // (SpriteView itself is deliberately name-agnostic — see spriteViews.ts).
+  private idToName = new Map<number, string>()
 
   constructor(
     private session: RuntimeSession,
     private payload: RunPayload,
   ) {
     super('stage')
+    this.textureIndex = buildTextureIndex(payload)
   }
 
   preload(): void {
     for (const s of this.payload.sprites) {
       for (const c of s.costumes) {
-        if (!this.textures.exists(c.name)) this.load.image(c.name, c.dataUrl)
+        const key = this.textureIndex.bySprite.get(s.name)?.get(c.name)
+        if (key && !this.textures.exists(key)) this.load.image(key, c.dataUrl)
       }
     }
     for (const b of this.payload.backdrops) {
@@ -69,11 +82,12 @@ export class StageScene extends Phaser.Scene {
 
   private render(): void {
     const snap = this.session.snapshot()
+    this.idToName = new Map(snap.sprites.map(s => [s.id, s.name]))
     const { create, update, destroy } = reconcile(new Set(this.entries.keys()), snap)
 
     for (const id of create) {
       const view = update.find(v => v.id === id)!
-      const image = this.add.image(view.px, view.py, view.texture ?? '')
+      const image = this.add.image(view.px, view.py, this.resolveTexture(view) ?? '')
       this.entries.set(id, { image, bubble: null, bubbleText: null })
     }
     for (const id of destroy) {
@@ -93,11 +107,20 @@ export class StageScene extends Phaser.Scene {
     for (const sound of snap.sounds) this.playSound(sound.id, sound.name)
   }
 
+  /** Resolve a view's costume name to its unique texture key via the sprite it belongs to. */
+  private resolveTexture(view: SpriteView): string | null {
+    if (!view.texture) return null
+    const spriteName = this.idToName.get(view.id)
+    if (!spriteName) return null
+    return this.textureIndex.bySprite.get(spriteName)?.get(view.texture) ?? null
+  }
+
   private applyView(view: SpriteView): void {
     const entry = this.entries.get(view.id)
     if (!entry) return
     const { image } = entry
-    if (view.texture && image.texture.key !== view.texture) image.setTexture(view.texture)
+    const texture = this.resolveTexture(view)
+    if (texture && image.texture.key !== texture) image.setTexture(texture)
     image.setPosition(view.px, view.py)
     image.setAngle(view.angle)
     image.setScale(view.scale)
