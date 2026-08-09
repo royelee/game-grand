@@ -123,6 +123,21 @@ simply becomes sticky within `.drawer-body`.
 `.library-dialog { width: 420px }` and its comment are deleted — the overlay
 makes both obsolete.
 
+### 4. Catalog cards stack
+
+Widening the dialog from 420px to the full column is what forced this. At
+420px, `repeat(auto-fill, minmax(140px, 1fr))` found two columns of ~194px; at
+the overlay's ~496px it finds three of ~160px, and a horizontal card — 48px
+thumb, name, and "Use this" — visibly overflowed its own border at that width.
+
+```css
+.library-grid .library-entry { flex-direction: column; gap: 6px; margin-bottom: 0; text-align: center; }
+.library-grid .library-entry p { flex: none; }
+```
+
+Scoped to `.library-grid`, so the built-in list and the Load dialog's recent
+games — which reuse `.library-entry` at full width — keep their row layout.
+
 ## Testing
 
 New `e2e/layout.spec.ts`, at 1440×900 and 1280×620:

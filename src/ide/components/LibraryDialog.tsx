@@ -84,128 +84,134 @@ export function LibraryDialog({
         <button onClick={onClose}>Close</button>
       </div>
 
-      {catalog === null ? (
-        <p className="library-offline">
-          The Scratch library isn't available right now. The built-in assets above still work.
-        </p>
-      ) : (
-        <>
-          {/*
-            Controls sit directly under the toolbar, and the Scratch grid comes
-            before the built-in ten. With 339 sprites against 5 bundled ones,
-            putting "Built in" first buried both the search box and the entire
-            library below the fold of a 320px drawer.
-          */}
-          <div className="library-controls">
-            <div className="library-tabs">
-              {kindsFor(kind).map(k => (
-                <button key={k} className={k === tab ? 'active' : ''} onClick={() => setTab(k)}>
-                  {k === 'sprite' ? 'Sprites' : `${k[0].toUpperCase()}${k.slice(1)}s`}
-                </button>
-              ))}
-            </div>
-            <input
-              className="library-search"
-              type="search"
-              placeholder="Search by name or tag…"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-            <div className="library-chips">
-              {TAG_CHIPS.map(t => (
-                <button key={t} className={t === tag ? 'active' : ''} onClick={() => setTag(t === tag ? null : t)}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            {error ? (
-              <p className="library-error" role="alert">
-                {error} <button onClick={() => setError(null)}>Retry</button>
-              </p>
-            ) : null}
-            <p className="library-count">{scratchItems.length} found</p>
-          </div>
-          <div className="library-grid">
-            {scratchItems.map(item => (
-              <div className="library-entry" key={item.name}>
-                {/*
-                  Narrowed inline rather than through a shared `thumb` variable:
-                  TypeScript can't carry a narrowing from a derived value back
-                  to `item`, and only CatalogSound reaches the Play branch.
-                */}
-                {'costumes' in item ? (
-                  <LazyThumb md5ext={item.costumes[0].md5ext} res={item.costumes[0].res} loader={loader} />
-                ) : 'res' in item ? (
-                  <LazyThumb md5ext={item.md5ext} res={item.res} loader={loader} />
-                ) : (
-                  <button
-                    onClick={() => {
-                      void loader
-                        .load(item.md5ext, 1)
-                        .then(a => new Audio(a.dataUrl).play())
-                        .catch(() => {})
-                    }}
-                  >
-                    ▶ Play
-                  </button>
-                )}
-                <p>
-                  {item.name}
-                  {'seconds' in item ? <span className="library-secs"> {item.seconds}s</span> : null}
-                </p>
-                <button disabled={busy !== null} onClick={() => void pick(item)}>
-                  {busy === item.name ? 'Adding…' : 'Use this'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
       {/*
-        Its own container so a test (or a stylesheet) can address the bundled
-        ten without also matching a Scratch card of the same name — there is a
-        Scratch "Cat" as well as ours.
+        Everything below the toolbar scrolls; the toolbar itself stays put, so
+        Close is still reachable after a flick through the 886-card grid.
       */}
-      <div className="library-builtin">
-        <h3>Built in</h3>
-        {local.map(entry => (
-          <div className="library-entry" key={entry.id}>
-            {kind === 'sound' ? (
-              <button
-                onClick={() => {
-                  const url = store.get(`library:${entry.id}`)?.dataUrl
-                  if (url) void new Audio(url).play().catch(() => {})
-                }}
-              >
-                ▶ Play
-              </button>
-            ) : (
-              <img src={store.get(`library:${entry.id}`)?.dataUrl} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
-            )}
-            <p>{entry.label}</p>
-            <button onClick={() => onPickLocal(entry)}>Use this</button>
-          </div>
-        ))}
-      </div>
+      <div className="drawer-body">
+        {catalog === null ? (
+          <p className="library-offline">
+            The Scratch library isn't available right now. The built-in assets above still work.
+          </p>
+        ) : (
+          <>
+            {/*
+              Controls sit directly under the toolbar, and the Scratch grid comes
+              before the built-in ten. With 339 sprites against 5 bundled ones,
+              putting "Built in" first buried both the search box and the entire
+              library below the fold.
+            */}
+            <div className="library-controls">
+              <div className="library-tabs">
+                {kindsFor(kind).map(k => (
+                  <button key={k} className={k === tab ? 'active' : ''} onClick={() => setTab(k)}>
+                    {k === 'sprite' ? 'Sprites' : `${k[0].toUpperCase()}${k.slice(1)}s`}
+                  </button>
+                ))}
+              </div>
+              <input
+                className="library-search"
+                type="search"
+                placeholder="Search by name or tag…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+              <div className="library-chips">
+                {TAG_CHIPS.map(t => (
+                  <button key={t} className={t === tag ? 'active' : ''} onClick={() => setTag(t === tag ? null : t)}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              {error ? (
+                <p className="library-error" role="alert">
+                  {error} <button onClick={() => setError(null)}>Retry</button>
+                </p>
+              ) : null}
+              <p className="library-count">{scratchItems.length} found</p>
+            </div>
+            <div className="library-grid">
+              {scratchItems.map(item => (
+                <div className="library-entry" key={item.name}>
+                  {/*
+                    Narrowed inline rather than through a shared `thumb` variable:
+                    TypeScript can't carry a narrowing from a derived value back
+                    to `item`, and only CatalogSound reaches the Play branch.
+                  */}
+                  {'costumes' in item ? (
+                    <LazyThumb md5ext={item.costumes[0].md5ext} res={item.costumes[0].res} loader={loader} />
+                  ) : 'res' in item ? (
+                    <LazyThumb md5ext={item.md5ext} res={item.res} loader={loader} />
+                  ) : (
+                    <button
+                      onClick={() => {
+                        void loader
+                          .load(item.md5ext, 1)
+                          .then(a => new Audio(a.dataUrl).play())
+                          .catch(() => {})
+                      }}
+                    >
+                      ▶ Play
+                    </button>
+                  )}
+                  <p>
+                    {item.name}
+                    {'seconds' in item ? <span className="library-secs"> {item.seconds}s</span> : null}
+                  </p>
+                  <button disabled={busy !== null} onClick={() => void pick(item)}>
+                    {busy === item.name ? 'Adding…' : 'Use this'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
-      <h3>Or upload your own</h3>
-      <input
-        type="file"
-        accept={kind === 'sound' ? 'audio/*' : 'image/png,image/jpeg,image/svg+xml'}
-        onChange={e => {
-          const file = e.target.files?.[0]
-          if (file) onUpload(file)
-        }}
-      />
-      <p className="library-credit">
-        Sprites, backdrops and sounds from the{' '}
-        <a href="https://scratch.mit.edu/" target="_blank" rel="noreferrer">Scratch</a> library,
-        licensed{' '}
-        <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
-          CC BY-SA 4.0
-        </a>. Built-in art is bundled with the app — see public/library/LICENSE.md.
-      </p>
+        {/*
+          Its own container so a test (or a stylesheet) can address the bundled
+          ten without also matching a Scratch card of the same name — there is a
+          Scratch "Cat" as well as ours.
+        */}
+        <div className="library-builtin">
+          <h3>Built in</h3>
+          {local.map(entry => (
+            <div className="library-entry" key={entry.id}>
+              {kind === 'sound' ? (
+                <button
+                  onClick={() => {
+                    const url = store.get(`library:${entry.id}`)?.dataUrl
+                    if (url) void new Audio(url).play().catch(() => {})
+                  }}
+                >
+                  ▶ Play
+                </button>
+              ) : (
+                <img src={store.get(`library:${entry.id}`)?.dataUrl} alt="" width={48} height={48} style={{ objectFit: 'contain' }} />
+              )}
+              <p>{entry.label}</p>
+              <button onClick={() => onPickLocal(entry)}>Use this</button>
+            </div>
+          ))}
+        </div>
+
+        <h3>Or upload your own</h3>
+        <input
+          type="file"
+          accept={kind === 'sound' ? 'audio/*' : 'image/png,image/jpeg,image/svg+xml'}
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) onUpload(file)
+          }}
+        />
+        <p className="library-credit">
+          Sprites, backdrops and sounds from the{' '}
+          <a href="https://scratch.mit.edu/" target="_blank" rel="noreferrer">Scratch</a> library,
+          licensed{' '}
+          <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">
+            CC BY-SA 4.0
+          </a>. Built-in art is bundled with the app — see public/library/LICENSE.md.
+        </p>
+      </div>
     </div>
   )
 }

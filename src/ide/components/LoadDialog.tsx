@@ -28,20 +28,23 @@ export function LoadDialog({ recent, onOpen, onForget, onClose }: Props) {
         <button onClick={onClose}>Close</button>
       </div>
 
-      <h3>Paste a game link</h3>
-      <input aria-label="Game link to open" value={link} onChange={e => setLink(e.target.value)} />
-      <button disabled={!id} onClick={() => id && onOpen(id)}>Open</button>
-      {link !== '' && !id && <p className="empty-note">That doesn’t look like a game link.</p>}
+      {/* Scrolls under a pinned toolbar — see .drawer-body in styles.css. */}
+      <div className="drawer-body">
+        <h3>Paste a game link</h3>
+        <input aria-label="Game link to open" value={link} onChange={e => setLink(e.target.value)} />
+        <button disabled={!id} onClick={() => id && onOpen(id)}>Open</button>
+        {link !== '' && !id && <p className="empty-note">That doesn’t look like a game link.</p>}
 
-      <h3>Games on this device</h3>
-      {recent.length === 0 && <p className="empty-note">Nothing saved here yet.</p>}
-      {recent.map(game => (
-        <div className="library-entry" key={game.id}>
-          <p>{game.name}</p>
-          <button onClick={() => onOpen(game.id)}>Open</button>
-          <button onClick={() => onForget(game.id)}>Forget</button>
-        </div>
-      ))}
+        <h3>Games on this device</h3>
+        {recent.length === 0 && <p className="empty-note">Nothing saved here yet.</p>}
+        {recent.map(game => (
+          <div className="library-entry" key={game.id}>
+            <p>{game.name}</p>
+            <button onClick={() => onOpen(game.id)}>Open</button>
+            <button onClick={() => onForget(game.id)}>Forget</button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
