@@ -1,10 +1,11 @@
 import { hsbToRgb, rgbToHsb, rgbToInt, type Rgb } from './colors'
 import { FriendlyError, expectNumber, show } from './errors'
+import type { RenderablePose } from './spriteModel'
 
 export type PenOp =
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: number; alpha: number; size: number }
   | { kind: 'dot'; x: number; y: number; color: number; alpha: number; size: number }
-  | { kind: 'stamp'; spriteId: number }
+  | { kind: 'stamp'; pose: RenderablePose }
   | { kind: 'clear' }
 
 /**

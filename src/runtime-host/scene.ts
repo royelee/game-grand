@@ -4,6 +4,7 @@ import { RuntimeSession } from './session'
 import { reconcile, toStageX, toStageY, type SpriteView } from './spriteViews'
 import { keyName } from './keys'
 import { buildTextureIndex, type TextureIndex } from './textureKeys'
+import { PenLayerView } from './penLayer'
 import type { RunPayload } from '../shared/protocol'
 
 interface SpriteEntry {
@@ -15,6 +16,7 @@ interface SpriteEntry {
 export class StageScene extends Phaser.Scene {
   private entries = new Map<number, SpriteEntry>()
   private backdrop: Phaser.GameObjects.Image | null = null
+  private pen: PenLayerView | null = null
   private watchText: Phaser.GameObjects.Text | null = null
   private audio = new Map<string, string>()
   private playing = new Set<HTMLAudioElement>()
@@ -58,6 +60,8 @@ export class StageScene extends Phaser.Scene {
       .setDepth(-1000)
       .setDisplaySize(STAGE_WIDTH, STAGE_HEIGHT)
 
+    this.pen = new PenLayerView(this)
+
     this.watchText = this.add
       .text(6, 6, '', { fontFamily: 'system-ui, sans-serif', fontSize: '13px', color: '#1a1a1a', backgroundColor: '#ffffffcc' })
       .setDepth(10000)
@@ -99,6 +103,14 @@ export class StageScene extends Phaser.Scene {
       this.entries.delete(id)
     }
     for (const view of update) this.applyView(view)
+
+    // After the sprite images are positioned: a stamp copies an image as this
+    // very snapshot describes it, so it must not run against last frame's pose.
+    this.pen?.apply(
+      snap.penOps,
+      (name, costume) =>
+        (costume && this.textureIndex.bySprite.get(name)?.get(costume)) ?? null,
+    )
 
     // The snapshot names a backdrop; Phaser needs its texture key. Going
     // straight from name to key would re-introduce the collision buildTextureIndex

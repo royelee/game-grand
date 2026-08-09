@@ -12,6 +12,25 @@ export interface Costume {
 
 export type RotationStyle = 'all around' | 'left-right' | "don't rotate"
 
+/**
+ * Everything a renderer needs to draw one sprite. A snapshot sprite satisfies
+ * it, and so does the pose a `stamp` freezes — which is why it is a named
+ * shape rather than "whatever snapshot() happens to return".
+ */
+export interface RenderablePose {
+  id: number
+  name: string
+  x: number
+  y: number
+  direction: number
+  size: number
+  visible: boolean
+  rotationStyle: RotationStyle
+  costume: string | null
+  effects: Record<string, number>
+  bubble: { text: string; kind: 'say' | 'think' } | null
+}
+
 export const STAGE_WIDTH = 480
 export const STAGE_HEIGHT = 360
 
@@ -259,9 +278,31 @@ export class SpriteModel {
     this.pen.down = false
   }
 
+  /**
+   * The pose is frozen into the op rather than looked up at render time: a
+   * script that stamps and then moves on in the same frame must leave the
+   * stamp where the sprite was, not where it ended up.
+   */
   stamp(): void {
     if (!this.visible) return
-    this.penLayer.push({ kind: 'stamp', spriteId: this.id })
+    this.penLayer.push({ kind: 'stamp', pose: this.pose() })
+  }
+
+  pose(): RenderablePose {
+    return {
+      id: this.id,
+      name: this.name,
+      x: this._x,
+      y: this._y,
+      direction: this.direction,
+      size: this.size,
+      visible: this.visible,
+      rotationStyle: this.rotationStyle,
+      costume: this.costumes[this.currentCostume]?.name ?? null,
+      effects: { ...this.effects },
+      // Scratch does not stamp speech bubbles.
+      bubble: null,
+    }
   }
 
   setPenColor(color: unknown): void {

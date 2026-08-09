@@ -1,4 +1,4 @@
-import { STAGE_WIDTH, STAGE_HEIGHT } from '../runtime/spriteModel'
+import { STAGE_WIDTH, STAGE_HEIGHT, type RenderablePose } from '../runtime/spriteModel'
 
 type SnapshotSprite = ReturnType<
   import('../runtime/world').World['snapshot']
@@ -22,8 +22,12 @@ export const toPhaserY = (y: number): number => STAGE_HEIGHT / 2 - y
 export const toStageX = (px: number): number => px - STAGE_WIDTH / 2
 export const toStageY = (py: number): number => STAGE_HEIGHT / 2 - py
 
-/** Everything the scene needs, already in Phaser's coordinate space. */
-export function viewFor(s: SnapshotSprite, depth: number): SpriteView {
+/**
+ * Everything the scene needs, already in Phaser's coordinate space. Takes the
+ * shared pose shape rather than a snapshot sprite so a stamped pose renders by
+ * exactly the same rules a live sprite does.
+ */
+export function viewFor(s: RenderablePose, depth: number): SpriteView {
   const ghost = s.effects.ghost ?? 0
   const alpha = s.visible ? Math.min(1, Math.max(0, 1 - ghost / 100)) : 0
   const leftRight = s.rotationStyle === 'left-right'

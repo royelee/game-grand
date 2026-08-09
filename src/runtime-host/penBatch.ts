@@ -1,5 +1,5 @@
 import type { PenOp } from '../runtime/pen'
-import { toPhaserX, toPhaserY } from './spriteViews'
+import { toPhaserX, toPhaserY, viewFor, type SpriteView } from './spriteViews'
 
 export type PenStroke =
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: number; alpha: number; size: number }
@@ -8,7 +8,7 @@ export type PenStroke =
 export type PenDraw =
   | { kind: 'strokes'; strokes: PenStroke[] }
   | { kind: 'clear' }
-  | { kind: 'stamp'; spriteId: number }
+  | { kind: 'stamp'; view: SpriteView; name: string }
 
 /**
  * Groups a frame's ops so the renderer can put every consecutive line and dot
@@ -28,9 +28,16 @@ export function batchOps(ops: PenOp[]): PenDraw[] {
   }
 
   for (const op of ops) {
-    if (op.kind === 'clear' || op.kind === 'stamp') {
+    if (op.kind === 'clear') {
       flush()
       draws.push(op)
+      continue
+    }
+    if (op.kind === 'stamp') {
+      flush()
+      // Depth is meaningless for a stamp: it is baked into the pen layer, not
+      // placed among the sprites.
+      draws.push({ kind: 'stamp', view: viewFor(op.pose, 0), name: op.pose.name })
       continue
     }
     if (op.kind === 'dot') {

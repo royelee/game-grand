@@ -222,13 +222,37 @@ describe('pen', () => {
     expect(() => s.setPenColor(5)).toThrow('`setPenColor` needs some text in quotes')
   })
 
-  it('stamp queues the sprite id, and a hidden sprite stamps nothing', () => {
+  it('a hidden sprite stamps nothing', () => {
     const { layer, s } = makePen()
-    s.stamp()
-    expect(layer.drain()).toEqual([{ kind: 'stamp', spriteId: 7 }])
     s.hide()
     s.stamp()
     expect(layer.drain()).toEqual([])
+  })
+
+  it('stamp freezes the pose, so moving on afterwards does not drag it', () => {
+    const { layer, s } = makePen()
+    s.goTo(-170, 90)
+    s.pointInDirection(45)
+    s.setSize(150)
+    s.stamp()
+    s.goTo(0, 0)
+    const [op] = layer.drain()
+    expect(op).toEqual({
+      kind: 'stamp',
+      pose: {
+        id: 7,
+        name: 'Cat',
+        x: -170,
+        y: 90,
+        direction: 45,
+        size: 150,
+        visible: true,
+        rotationStyle: 'all around',
+        costume: 'cat-a',
+        effects: {},
+        bubble: null,
+      },
+    })
   })
 
   it('setPen and changePen reach the pen state', () => {

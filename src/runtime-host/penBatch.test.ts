@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { batchOps } from './penBatch'
 import type { PenOp } from '../runtime/pen'
+import type { RenderablePose } from '../runtime/spriteModel'
 
 const line = (x1: number, y1: number, x2: number, y2: number): PenOp => ({
   kind: 'line', x1, y1, x2, y2, color: 0xff0000, alpha: 1, size: 2,
+})
+
+const pose = (over: Partial<RenderablePose> = {}): RenderablePose => ({
+  id: 7, name: 'Cat', x: 0, y: 0, direction: 90, size: 100, visible: true,
+  rotationStyle: 'all around', costume: 'cat-a', effects: {}, bubble: null,
+  ...over,
 })
 
 describe('batchOps', () => {
@@ -27,10 +34,19 @@ describe('batchOps', () => {
       line(0, 0, 1, 1),
       { kind: 'clear' },
       line(2, 2, 3, 3),
-      { kind: 'stamp', spriteId: 4 },
+      { kind: 'stamp', pose: pose() },
       line(4, 4, 5, 5),
     ])
     expect(draws.map(d => d.kind)).toEqual(['strokes', 'clear', 'strokes', 'stamp', 'strokes'])
+  })
+
+  it('poses a stamp from the frozen pose, not from anything live', () => {
+    const [draw] = batchOps([{ kind: 'stamp', pose: pose({ x: -170, y: 90, size: 150 }) }])
+    expect(draw).toMatchObject({
+      kind: 'stamp',
+      name: 'Cat',
+      view: { px: 70, py: 90, scale: 1.5, texture: 'cat-a' },
+    })
   })
 
   it('carries dots through with converted coordinates', () => {
