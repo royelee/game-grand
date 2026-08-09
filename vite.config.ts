@@ -13,9 +13,14 @@ export default defineConfig({
     // safe, and it lets us keep the strong sandbox (no allow-same-origin).
     // Any production server must send the same header — see docs/TODO.md.
     headers: { 'Access-Control-Allow-Origin': '*' },
+    // Save/Load talk to the Fastify server. Without this, /api/* falls through
+    // to the SPA fallback and returns HTML, so saving fails with a confusing
+    // message. Run `make server-dev` alongside `make dev`.
+    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } },
   },
   preview: {
     headers: { 'Access-Control-Allow-Origin': '*' },
+    proxy: { '/api': { target: 'http://localhost:8080', changeOrigin: true } },
   },
   build: {
     rollupOptions: {

@@ -2,4 +2,9 @@ node_modules
 dist
 test-results/
 playwright-report/
+# SQLite project stores: the default `make server`/`server-dev` filename,
+# the e2e-server-mode disposable file, and their WAL/journal companions.
+projects.db
+projects.db-*
 .e2e-projects.db
+.e2e-projects.db-*

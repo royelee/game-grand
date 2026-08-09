@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
-  addSpriteFromLibrary, consoleLines, run, setEditorContent, waitForLibrary,
+  addSpriteFromLibrary, consoleLines, editorText, run, setEditorContent, waitForLibrary,
 } from './helpers'
 
 test.skip(!process.env.E2E_SERVER, 'Saving needs the real server (run with E2E_SERVER=1)')
@@ -9,6 +9,41 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForLibrary(page)
 })
+
+const openLibraryEntry = (page: Page, name: string) =>
+  page.locator('.load-dialog .library-entry').filter({ hasText: name }).getByRole('button', { name: 'Open' }).click()
+
+/**
+ * Saves two games on this device — game A with a Cat sprite, game B with a
+ * Ball sprite — then reopens game A so it's the current, freshly-saved
+ * project. Used by the discard-unsaved-work tests below, which each need a
+ * second saved game to try opening over the current one.
+ */
+async function saveTwoGamesAndReopenA(page: Page): Promise<{ urlA: string; urlB: string }> {
+  await addSpriteFromLibrary(page, 'Cat')
+  await page.getByLabel('Game name').fill('Game A')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.save-status')).toHaveText('Saved')
+  const urlA = page.url()
+
+  await page.goto('/')
+  await waitForLibrary(page)
+  await addSpriteFromLibrary(page, 'Ball')
+  await page.getByLabel('Game name').fill('Game B')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.locator('.save-status')).toHaveText('Saved')
+  const urlB = page.url()
+
+  // Back to a blank project, then reopen game A as "the current game" — a
+  // clean open with nothing unsaved, so it doesn't itself trigger a confirm.
+  await page.goto('/')
+  await waitForLibrary(page)
+  await page.getByRole('button', { name: 'Load' }).click()
+  await openLibraryEntry(page, 'Game A')
+  await expect(page).toHaveURL(urlA)
+
+  return { urlA, urlB }
+}
 
 test('saves a game and reopens it from its link', async ({ page }) => {
   await addSpriteFromLibrary(page, 'Cat')
@@ -88,4 +123,62 @@ test('pasting a link into the Load dialog opens that game', async ({ page }) => 
   await other.getByRole('button', { name: 'Open' }).click()
   await expect(other.getByLabel('Game name')).toHaveValue('Pasted Game')
   await fresh.close()
+})
+
+test('canceling the unsaved-work prompt keeps the current game and its edit', async ({ page }) => {
+  const { urlA } = await saveTwoGamesAndReopenA(page)
+
+  await setEditorContent(page, 'onStart(() => console.log("unsaved edit"))')
+  await expect(page.locator('.save-status')).toHaveText('')
+
+  await page.getByRole('button', { name: 'Load' }).click()
+  page.once('dialog', dialog => dialog.dismiss())
+  await openLibraryEntry(page, 'Game B')
+
+  // Canceling only aborts opening game B — the dialog itself stays open
+  // (nothing has changed underneath it yet). Close it to see the sprite list.
+  await page.getByRole('button', { name: 'Close' }).click()
+  await expect(page).toHaveURL(urlA)
+  await expect(page.locator('.sprite-row')).toContainText('Cat')
+  expect(await editorText(page)).toContain('unsaved edit')
+})
+
+test('confirming the unsaved-work prompt discards the edit and opens the other game', async ({ page }) => {
+  const { urlB } = await saveTwoGamesAndReopenA(page)
+
+  await setEditorContent(page, 'onStart(() => console.log("unsaved edit"))')
+  await expect(page.locator('.save-status')).toHaveText('')
+
+  // Track that a confirm genuinely appeared — accepting an assertion that
+  // never fired would make this indistinguishable from having no guard at all.
+  let dialogMessage: string | null = null
+  page.once('dialog', dialog => {
+    dialogMessage = dialog.message()
+    void dialog.accept()
+  })
+
+  await page.getByRole('button', { name: 'Load' }).click()
+  await openLibraryEntry(page, 'Game B')
+
+  await expect(page.getByLabel('Game name')).toHaveValue('Game B')
+  await expect(page.locator('.sprite-row')).toContainText('Ball')
+  await expect(page).toHaveURL(urlB)
+  expect(dialogMessage).toMatch(/aren.t saved yet/i)
+})
+
+test('opening another game does not prompt when there is nothing unsaved', async ({ page }) => {
+  const { urlB } = await saveTwoGamesAndReopenA(page)
+
+  const dialogMessages: string[] = []
+  page.on('dialog', dialog => {
+    dialogMessages.push(dialog.message())
+    void dialog.dismiss()
+  })
+
+  await page.getByRole('button', { name: 'Load' }).click()
+  await openLibraryEntry(page, 'Game B')
+
+  await expect(page.getByLabel('Game name')).toHaveValue('Game B')
+  await expect(page).toHaveURL(urlB)
+  expect(dialogMessages).toEqual([])
 })

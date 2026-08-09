@@ -24,6 +24,7 @@ Items intentionally left out of v1, to follow up later.
 - [ ] Backdrops and sounds are still keyed by name in the Phaser scene (`scene.ts` preload/playSound), the same collision class fixed for costumes: an uploaded backdrop or sound sharing a library asset's name silently wins/loses. Key them by asset identity too.
 - [ ] `searchApi` does not search example text (e.g. searching "beep" won't surface `playSound`).
 - [ ] Some API examples reference sprites a fresh project lacks (`sprite.touching("Bat")`), so Insert-example can throw when run before that sprite exists.
+- [ ] `make dev` and `make server-dev` are two separate commands a kid/dev must remember to run together for Save/Load to work locally (`vite.config.ts` proxies `/api` to `:8080`, but nothing starts that second process). A combined target (e.g. `make dev-all` running both, or a single dev server that also mounts the API) would remove the foot-gun — not built now since it needs a decision on process supervision (concurrently? two terminals documented? a wrapper script?).
 
 - [ ] **Export project to file / Import from file** — download and restore a project as a `.json` file (deferred from v1 top bar; v1 is server save/load-by-link only).
 - [ ] **Costume editor (Phase 2)** — in-app paint/pixel editor for drawing sprite costumes and backdrops.

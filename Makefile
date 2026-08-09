@@ -20,9 +20,15 @@ install: node_modules ## Install dependencies
 build: node_modules ## Typecheck and build to dist/
 	npm run build
 
-dev: node_modules ## Run the dev server with hot reload
+# Save/Load need the Fastify server too — vite.config.ts proxies /api to
+# http://localhost:8080, so run `make server-dev` in another shell (after at
+# least one `make build`) alongside this target.
+dev: node_modules ## Run the dev server with hot reload (Save/Load need `make server-dev` too)
 	npm run dev -- --port $(DEV_PORT)
 
+# Also proxies /api to http://localhost:8080 (see vite.config.ts) — pair with
+# `make server-dev` if you want Save/Load to work here. For an actual
+# single-process production server, use `make server` instead.
 prod: build ## Build, then serve the production bundle
 	npm run preview -- --host --port $(PROD_PORT)
 
