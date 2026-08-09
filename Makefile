@@ -3,7 +3,7 @@
 DEV_PORT  ?= 5173
 PROD_PORT ?= 4173
 
-.PHONY: help install build dev prod test test-unit test-e2e test-e2e-prod test-all clean
+.PHONY: help install build dev prod test test-unit test-e2e test-e2e-prod test-all clean server server-dev
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -38,6 +38,12 @@ test-e2e-prod: node_modules ## Run Playwright against the production build
 	E2E_PREVIEW=1 npx playwright test
 
 test-all: test-unit test-e2e test-e2e-prod ## Run every suite
+
+server: build ## Build the client, then run the server on PORT (default 8080)
+	npm run server
+
+server-dev: node_modules ## Run the server with reload (client must be built)
+	npm run server:dev
 
 clean: ## Remove build output and test artifacts
 	rm -rf dist test-results playwright-report
