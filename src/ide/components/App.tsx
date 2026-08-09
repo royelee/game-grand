@@ -86,14 +86,20 @@ export function App() {
   const uploadAsset = async (file: File) => {
     try {
       const dataUrl = await readFileAsDataUrl(file)
-      const natural = await measureImage(dataUrl)
-      const size = downscale(natural.width, natural.height)
-      // The store learns the dimensions; the ref stays pure identity.
-      setStore(prev => new Map(prev).set(dataUrl, { dataUrl, ...size }))
       const ref: AssetRef = { name: file.name.replace(/\.[^.]+$/, ''), source: dataUrl }
-      if (picking === 'sound') dispatch({ type: 'add-sound', ref })
-      else if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
-      else dispatch({ type: 'add-sprite', name: ref.name, costumes: [ref] })
+      if (picking === 'sound') {
+        // A sound never decodes as an <Image>; only costumes/backdrops need
+        // measuring for collision boxes and downscaling.
+        setStore(prev => new Map(prev).set(dataUrl, { dataUrl, width: 0, height: 0 }))
+        dispatch({ type: 'add-sound', ref })
+      } else {
+        const natural = await measureImage(dataUrl)
+        const size = downscale(natural.width, natural.height)
+        // The store learns the dimensions; the ref stays pure identity.
+        setStore(prev => new Map(prev).set(dataUrl, { dataUrl, ...size }))
+        if (picking === 'backdrop') dispatch({ type: 'add-backdrop', ref })
+        else dispatch({ type: 'add-sprite', name: ref.name, costumes: [ref] })
+      }
       setPicking(null)
     } catch (err) {
       dispatch({
