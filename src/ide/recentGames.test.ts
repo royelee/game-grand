@@ -55,4 +55,19 @@ describe('recent games', () => {
     forgetGame(storage, 'a')
     expect(readRecent(storage).map(g => g.id)).toEqual(['b'])
   })
+
+  it('survives a storage that refuses to write', () => {
+    const full: Storage = {
+      get length() { return 0 },
+      clear: () => {},
+      getItem: () => null,
+      key: () => null,
+      removeItem: () => {},
+      setItem: () => {
+        throw new DOMException('QuotaExceededError')
+      },
+    }
+    expect(() => rememberGame(full, { id: 'a', name: 'A', savedAt: 1 })).not.toThrow()
+    expect(() => forgetGame(full, 'a')).not.toThrow()
+  })
 })

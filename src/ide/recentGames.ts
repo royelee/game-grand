@@ -25,14 +25,28 @@ export function readRecent(storage: Storage): RecentGame[] {
   }
 }
 
+/**
+ * Writes are best-effort. A full localStorage (Safari private browsing, a
+ * constrained device) throws QuotaExceededError, and losing this convenience
+ * list must never take down a save that already succeeded on the server —
+ * the link is the real key to a game, not this list.
+ */
+function write(storage: Storage, games: RecentGame[]): void {
+  try {
+    storage.setItem(KEY, JSON.stringify(games))
+  } catch {
+    // Ignore: the list is a nicety, the game is already safe on the server.
+  }
+}
+
 export function rememberGame(storage: Storage, game: RecentGame): void {
   const next = [game, ...readRecent(storage).filter(g => g.id !== game.id)].slice(
     0,
     MAX_RECENT_GAMES,
   )
-  storage.setItem(KEY, JSON.stringify(next))
+  write(storage, next)
 }
 
 export function forgetGame(storage: Storage, id: string): void {
-  storage.setItem(KEY, JSON.stringify(readRecent(storage).filter(g => g.id !== id)))
+  write(storage, readRecent(storage).filter(g => g.id !== id))
 }
