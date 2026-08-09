@@ -15,6 +15,8 @@ export interface IdeState {
   running: boolean
   runId: number
   console: ConsoleLine[]
+  projectId: string | null
+  save: { status: 'idle' | 'saving' | 'saved' | 'error'; message: string | null }
 }
 
 export type IdeAction =
@@ -30,9 +32,22 @@ export type IdeAction =
   | { type: 'log'; text: string }
   | { type: 'issue'; issue: ScriptIssue }
   | { type: 'clear-console' }
+  | { type: 'rename-project'; name: string }
+  | { type: 'saving' }
+  | { type: 'saved'; id: string }
+  | { type: 'save-failed'; message: string }
+  | { type: 'project-loaded'; id: string; project: Project }
 
-export function initialState(project: Project): IdeState {
-  return { project, selectedTab: 'main', running: false, runId: 0, console: [] }
+export function initialState(project: Project, projectId: string | null = null): IdeState {
+  return {
+    project,
+    selectedTab: 'main',
+    running: false,
+    runId: 0,
+    console: [],
+    projectId,
+    save: { status: 'idle', message: null },
+  }
 }
 
 /**
@@ -53,7 +68,7 @@ function issueText(issue: ScriptIssue): string {
     : `In ${issue.tab}, line ${issue.line}: ${issue.message}`
 }
 
-export function reducer(state: IdeState, action: IdeAction): IdeState {
+function applyAction(state: IdeState, action: IdeAction): IdeState {
   switch (action.type) {
     case 'select-tab':
       return { ...state, selectedTab: action.tab }
@@ -117,5 +132,45 @@ export function reducer(state: IdeState, action: IdeAction): IdeState {
 
     case 'clear-console':
       return { ...state, console: [] }
+
+    case 'rename-project':
+      return { ...state, project: { ...state.project, name: action.name } }
+
+    case 'saving':
+      return { ...state, save: { status: 'saving', message: null } }
+
+    case 'saved':
+      return { ...state, projectId: action.id, save: { status: 'saved', message: null } }
+
+    case 'save-failed':
+      return { ...state, save: { status: 'error', message: action.message } }
+
+    case 'project-loaded':
+      return {
+        ...state,
+        project: action.project,
+        projectId: action.id,
+        selectedTab: 'main',
+        save: { status: 'saved', message: null },
+        console: [],
+      }
   }
+}
+
+/**
+ * Any action that edits the project must drop a `saved` status back to
+ * `idle`, so the UI stops claiming the work is safe once it no longer
+ * matches what's on the server.
+ */
+const EDITING_ACTIONS = new Set([
+  'add-sprite', 'add-backdrop', 'add-sound', 'delete-sprite', 'rename-sprite',
+  'set-script', 'rename-project',
+])
+
+export function reducer(state: IdeState, action: IdeAction): IdeState {
+  const next = applyAction(state, action)
+  if (next.save.status === 'saved' && EDITING_ACTIONS.has(action.type)) {
+    return { ...next, save: { status: 'idle', message: null } }
+  }
+  return next
 }

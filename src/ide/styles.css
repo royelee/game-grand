@@ -40,3 +40,11 @@ button.danger { background: #d34b4b; border-color: #b93f3f; color: #fff; }
 .api-entry p { margin: 4px 0 6px; font-size: 12px; color: #444; }
 .code-area { display: flex; flex: 1; min-height: 0; }
 .code-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ide-opening { display: flex; align-items: center; justify-content: center; height: 100vh; color: #4a5160; font-size: 16px; background: var(--bg); }
+.savebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.savebar input { font: inherit; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.savebar input.link { flex: 1; min-width: 120px; color: #4a5160; background: var(--bg); }
+.save-status { font-size: 12px; color: #4a7a4a; }
+.save-error { font-size: 12px; color: #b3261e; }
+.link-warning { flex-basis: 100%; font-size: 12px; color: #8a5a00; }
+.load-dialog h3 { margin-top: 14px; }

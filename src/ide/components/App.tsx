@@ -1,18 +1,28 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { createEmptyProject, toRunPayload, type AssetRef } from '../../shared/project'
 import type { RunPayload } from '../../shared/protocol'
+import { ApiError, createProject, loadProject, projectUrl, saveProject } from '../api'
 import {
   loadManifest, makeResolver, preloadLibrary, refsForEntry,
   type AssetStore, type LibraryEntry, type LibraryManifest,
 } from '../library'
+import { forgetGame, readRecent, rememberGame } from '../recentGames'
 import { initialState, reducer } from '../store'
 import { measureImage, downscale, readFileAsDataUrl } from '../upload'
 import { ApiDrawer } from './ApiDrawer'
 import { CodeEditor } from './CodeEditor'
 import { ConsolePane } from './ConsolePane'
 import { LibraryDialog } from './LibraryDialog'
+import { LoadDialog } from './LoadDialog'
+import { SaveBar } from './SaveBar'
 import { SpriteList } from './SpriteList'
 import { StagePanel } from './StagePanel'
+
+// Matched once at mount so a route like `/p/<id>` can be opened directly. The
+// id is only threaded into state once loading actually succeeds (see the
+// effect below) — seeding it eagerly would let a failed load leave `Save`
+// pointed at someone else's game.
+const startingId = /^\/p\/([A-Za-z0-9_-]{22})$/.exec(window.location.pathname)?.[1] ?? null
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState(createEmptyProject()))
@@ -23,6 +33,10 @@ export function App() {
   const [libraryError, setLibraryError] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [showApi, setShowApi] = useState(true)
+  const [opening, setOpening] = useState(startingId !== null)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const [loadOpen, setLoadOpen] = useState(false)
+  const [recent, setRecent] = useState(() => readRecent(window.localStorage))
 
   useEffect(() => {
     let cancelled = false
@@ -43,6 +57,27 @@ export function App() {
     })()
     return () => { cancelled = true }
   }, [loadAttempt])
+
+  useEffect(() => {
+    if (!startingId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const project = await loadProject(startingId)
+        if (cancelled) return
+        dispatch({ type: 'project-loaded', id: startingId, project })
+      } catch (err) {
+        if (cancelled) return
+        const message =
+          err instanceof ApiError ? err.message : 'Something went wrong opening your game.'
+        dispatch({ type: 'issue', issue: { tab: 'main', line: null, message } })
+        setOpenError(message)
+      } finally {
+        if (!cancelled) setOpening(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const resolver = useMemo(() => (manifest ? makeResolver(store) : null), [manifest, store])
 
@@ -109,6 +144,47 @@ export function App() {
     }
   }
 
+  const handleSave = async () => {
+    dispatch({ type: 'saving' })
+    try {
+      const id = state.projectId
+        ? (await saveProject(state.projectId, state.project), state.projectId)
+        : await createProject(state.project)
+      dispatch({ type: 'saved', id })
+      if (!state.projectId) window.history.replaceState(null, '', projectUrl(id))
+      rememberGame(window.localStorage, {
+        id,
+        name: state.project.name,
+        savedAt: Date.now(),
+      })
+      setRecent(readRecent(window.localStorage))
+    } catch (err) {
+      dispatch({
+        type: 'save-failed',
+        message: err instanceof ApiError ? err.message : 'Something went wrong saving your game.',
+      })
+    }
+  }
+
+  const handleOpen = async (id: string) => {
+    try {
+      const project = await loadProject(id)
+      dispatch({ type: 'project-loaded', id, project })
+      window.history.pushState(null, '', projectUrl(id))
+      setLoadOpen(false)
+    } catch (err) {
+      dispatch({
+        type: 'save-failed',
+        message: err instanceof ApiError ? err.message : 'Something went wrong opening that game.',
+      })
+    }
+  }
+
+  const handleForget = (id: string) => {
+    forgetGame(window.localStorage, id)
+    setRecent(readRecent(window.localStorage))
+  }
+
   const currentScript =
     state.selectedTab === 'main'
       ? state.project.mainScript
@@ -116,9 +192,29 @@ export function App() {
 
   const tabs = ['main', ...state.project.sprites.map(s => s.name)]
 
+  if (opening) {
+    return (
+      <div className="ide-opening">
+        <p>Opening your game…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="ide">
       <div className="panel">
+        <SaveBar
+          state={state}
+          onRename={name => dispatch({ type: 'rename-project', name })}
+          onSave={() => void handleSave()}
+          onOpenLoad={() => setLoadOpen(true)}
+        />
+        {openError && (
+          <div className="banner">
+            <span>{openError}</span>
+            <button onClick={() => setOpenError(null)}>Start a new game instead</button>
+          </div>
+        )}
         <div className="toolbar">
           <h1>{state.project.name}</h1>
           <button onClick={() => setPicking('backdrop')} disabled={!manifest}>Backdrop</button>
@@ -148,6 +244,13 @@ export function App() {
             onPick={pickFromLibrary}
             onUpload={file => void uploadAsset(file)}
             onClose={() => setPicking(null)}
+          />
+        ) : loadOpen ? (
+          <LoadDialog
+            recent={recent}
+            onOpen={id => void handleOpen(id)}
+            onForget={handleForget}
+            onClose={() => setLoadOpen(false)}
           />
         ) : (
           <SpriteList

@@ -107,3 +107,53 @@ describe('ide reducer', () => {
     expect(s.console.at(-1)?.text).toBe(`In main: boom ${MAX_CONSOLE_LINES + 4}`)
   })
 })
+
+describe('saving', () => {
+  it('starts with no project id and an idle save state', () => {
+    const s = initialState(createEmptyProject())
+    expect(s.projectId).toBeNull()
+    expect(s.save).toEqual({ status: 'idle', message: null })
+  })
+
+  it('accepts a starting project id', () => {
+    expect(initialState(createEmptyProject(), 'abc123').projectId).toBe('abc123')
+  })
+
+  it('renames the project without touching anything else', () => {
+    const before = withCat()
+    const after = reducer(before, { type: 'rename-project', name: 'Cat Chase' })
+    expect(after.project.name).toBe('Cat Chase')
+    expect(after.project.sprites).toEqual(before.project.sprites)
+  })
+
+  it('moves through saving to saved and records the id', () => {
+    let s = reducer(withCat(), { type: 'saving' })
+    expect(s.save.status).toBe('saving')
+    s = reducer(s, { type: 'saved', id: 'abc123' })
+    expect(s.projectId).toBe('abc123')
+    expect(s.save).toEqual({ status: 'saved', message: null })
+  })
+
+  it('keeps the id when a later save fails, and surfaces why', () => {
+    let s = reducer(withCat(), { type: 'saved', id: 'abc123' })
+    s = reducer(s, { type: 'save-failed', message: 'That game is too big to save.' })
+    expect(s.projectId).toBe('abc123')
+    expect(s.save).toEqual({ status: 'error', message: 'That game is too big to save.' })
+  })
+
+  it('replaces the whole project when one is loaded, and selects main', () => {
+    const loaded = addSprite(createEmptyProject(), 'Bat', [costume])
+    let s = reducer(withCat(), { type: 'select-tab', tab: 'Cat' })
+    s = reducer(s, { type: 'project-loaded', id: 'xyz', project: loaded })
+    expect(s.projectId).toBe('xyz')
+    expect(s.project.sprites.map(x => x.name)).toEqual(['Bat'])
+    expect(s.selectedTab).toBe('main')
+    expect(s.save).toEqual({ status: 'saved', message: null })
+  })
+
+  it('an edit after saving returns the state to idle so Save is offered again', () => {
+    let s = reducer(withCat(), { type: 'saved', id: 'abc123' })
+    s = reducer(s, { type: 'set-script', tab: 'main', script: 'vars.score = 0' })
+    expect(s.save.status).toBe('idle')
+  })
+})
