@@ -4,14 +4,31 @@ import { registerProjectRoutes } from './routes.ts'
 import { MAX_PROJECT_BYTES } from '../src/shared/projectSchema.ts'
 
 export interface AppOptions {
-  logger?: boolean
+  // `{ stream }` is a test-only escape hatch: it takes the exact same
+  // serializer/config path as `true`, but lets a test capture the real pino
+  // output instead of writing it to stdout, so the redaction can be verified
+  // against what Fastify actually logs rather than trusted on faith.
+  logger?: boolean | { stream: NodeJS.WritableStream }
   store?: ProjectStore
   now?: () => number
 }
 
 export function buildApp(options: AppOptions = {}): FastifyInstance {
   const app = Fastify({
-    logger: options.logger ?? false,
+    logger: options.logger
+      ? {
+          serializers: {
+            // A project id in a URL is a capability — logging one hands out
+            // edit rights to that game. Log the shape of the request, never
+            // the id itself.
+            req: (request: { method: string; url: string }) => ({
+              method: request.method,
+              url: request.url.replace(/\/api\/projects\/[^/?]+/, '/api/projects/[id]'),
+            }),
+          },
+          ...(typeof options.logger === 'object' ? { stream: options.logger.stream } : {}),
+        }
+      : false,
     // Let oversize bodies reach our own check so kids get the friendly message
     // instead of Fastify's default 413.
     bodyLimit: MAX_PROJECT_BYTES + 1024,
@@ -38,7 +55,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
 
   app.get('/api/health', async () => ({ ok: true }))
 
-  app.setNotFoundHandler(async (request, reply) =>
+  app.setNotFoundHandler(async (_request, reply) =>
     reply.code(404).send({ error: 'That page was not found.' }),
   )
 

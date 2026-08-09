@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { Writable } from 'node:stream'
 import { buildApp } from './app.ts'
 import { ProjectStore } from './db.ts'
 import type { FastifyInstance } from 'fastify'
@@ -112,5 +113,36 @@ describe('PUT /api/projects/:id', () => {
 describe('health', () => {
   it('still answers', async () => {
     expect((await app.inject({ method: 'GET', url: '/api/health' })).json()).toEqual({ ok: true })
+  })
+})
+
+describe('logging', () => {
+  it('never writes a project id to the log', async () => {
+    // Overriding `app.log.info` does not work here: Fastify's automatic
+    // request/response logging runs on a per-request *child* logger, and
+    // reassigning the parent's `.info` method does not intercept it — it was
+    // verified empirically to capture zero lines while pino kept writing the
+    // real log to its actual destination underneath. A real pino destination
+    // stream is the only way to see what Fastify genuinely emits.
+    const lines: string[] = []
+    const stream = new Writable({
+      write(chunk: Buffer, _enc, callback) {
+        lines.push(chunk.toString())
+        callback()
+      },
+    })
+
+    const logged = buildApp({ store, now: () => clock, logger: { stream } })
+
+    const { id } = (await logged.inject({ method: 'POST', url: '/api/projects', payload: project() })).json()
+    await logged.inject({ method: 'GET', url: `/api/projects/${id}` })
+    await logged.close()
+
+    expect(id).toBeTruthy()
+    // Prove the capture itself isn't vacuous: real request/response lines
+    // must actually have landed in the stream.
+    expect(lines.length).toBeGreaterThan(0)
+    expect(lines.some(line => line.includes('/api/projects/[id]'))).toBe(true)
+    for (const line of lines) expect(line).not.toContain(id)
   })
 })

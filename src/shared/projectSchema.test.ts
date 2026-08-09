@@ -145,7 +145,13 @@ describe('module hygiene', () => {
   it('imports nothing, so the server can typecheck it in isolation', async () => {
     const { readFileSync } = await import('node:fs')
     const source = readFileSync(new URL('./projectSchema.ts', import.meta.url), 'utf8')
+    // Both forms matter: an `import` statement is the obvious way to pull in
+    // another module, but `export { x } from './y'` (a re-export) makes tsc
+    // resolve './y' too, just as surely — either one would silently
+    // reintroduce the whole-client-graph build break this file exists to
+    // prevent.
     expect(source).not.toMatch(/^\s*import\s/m)
+    expect(source).not.toMatch(/^\s*export\s+(type\s+)?[{*].*\sfrom\s/m)
   })
 })
 
