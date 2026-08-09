@@ -35,6 +35,18 @@ export function initialState(project: Project): IdeState {
   return { project, selectedTab: 'main', running: false, runId: 0, console: [] }
 }
 
+/**
+ * A script logging inside `onUpdate` can produce ~60 dispatches/sec. Without
+ * a cap, an unbounded array re-renders the whole IDE and eventually exhausts
+ * memory on a run left going.
+ */
+export const MAX_CONSOLE_LINES = 500
+
+function pushLine(lines: ConsoleLine[], line: ConsoleLine): ConsoleLine[] {
+  const next = [...lines, line]
+  return next.length > MAX_CONSOLE_LINES ? next.slice(next.length - MAX_CONSOLE_LINES) : next
+}
+
 function issueText(issue: ScriptIssue): string {
   return issue.line === null
     ? `In ${issue.tab}: ${issue.message}`
@@ -95,12 +107,12 @@ export function reducer(state: IdeState, action: IdeAction): IdeState {
       return { ...state, running: false }
 
     case 'log':
-      return { ...state, console: [...state.console, { kind: 'log', text: action.text }] }
+      return { ...state, console: pushLine(state.console, { kind: 'log', text: action.text }) }
 
     case 'issue':
       return {
         ...state,
-        console: [...state.console, { kind: 'issue', text: issueText(action.issue) }],
+        console: pushLine(state.console, { kind: 'issue', text: issueText(action.issue) }),
       }
 
     case 'clear-console':
