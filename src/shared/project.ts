@@ -1,4 +1,6 @@
 import type { LoadedCostume, RunPayload } from './protocol'
+import { RESERVED_TAB_NAMES } from './projectSchema'
+export { RESERVED_TAB_NAMES }
 
 /** A reference to an asset: `library:<id>` for built-ins, `data:` for uploads. */
 export interface AssetRef {
@@ -33,9 +35,6 @@ export interface Project {
 }
 
 export const DEFAULT_BACKDROP: AssetRef = { name: 'blue-sky', source: 'library:blue-sky' }
-
-/** Tab names a sprite may never take — they belong to other parts of the UI. */
-export const RESERVED_TAB_NAMES = ['main']
 
 export function createEmptyProject(): Project {
   return {

@@ -1,5 +1,13 @@
 import type { Project } from './project'
 
+/**
+ * Tab names a sprite may never take — they belong to other parts of the UI.
+ * Lives here rather than in project.ts because this module must stay free of
+ * runtime imports (the server loads it directly under Node type stripping),
+ * and project.ts can import it from here instead.
+ */
+export const RESERVED_TAB_NAMES = ['main']
+
 export const MAX_PROJECT_BYTES = 10 * 1024 * 1024
 
 export type ValidationResult =
@@ -20,8 +28,8 @@ function spriteError(value: unknown, index: number): string | null {
   if (!isPlainObject(value)) return `Sprite ${index + 1} is not readable.`
   const label = typeof value.name === 'string' ? `"${value.name}"` : `${index + 1}`
   if (typeof value.name !== 'string') return `Sprite ${label} has no name.`
-  for (const key of ['x', 'y', 'size', 'direction', 'currentCostume'] as const) {
-    if (typeof value[key] !== 'number' || Number.isNaN(value[key])) {
+  for (const key of ['x', 'y', 'size', 'direction'] as const) {
+    if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) {
       return `Sprite ${label} has a bad ${key}.`
     }
   }
@@ -29,6 +37,14 @@ function spriteError(value: unknown, index: number): string | null {
   if (typeof value.script !== 'string') return `Sprite ${label} has no script.`
   if (!Array.isArray(value.costumes) || !value.costumes.every(isAssetRef)) {
     return `Sprite ${label} has a bad costume.`
+  }
+  if (value.costumes.length === 0) return `Sprite ${label} has no costumes.`
+  if (
+    !Number.isInteger(value.currentCostume) ||
+    (value.currentCostume as number) < 0 ||
+    (value.currentCostume as number) >= value.costumes.length
+  ) {
+    return `Sprite ${label} is wearing a costume it doesn't have.`
   }
   return null
 }
@@ -48,12 +64,28 @@ export function validateProject(value: unknown): ValidationResult {
     if (error) return fail(error)
   }
 
+  const names = new Set<string>()
+  for (const sprite of value.sprites as { name: string }[]) {
+    if (RESERVED_TAB_NAMES.includes(sprite.name)) {
+      return fail(`A sprite can't be called "${sprite.name}" — that name is used by the main script.`)
+    }
+    if (names.has(sprite.name)) return fail(`Two sprites are both called "${sprite.name}".`)
+    names.add(sprite.name)
+  }
+
   const stage = value.stage
   if (!isPlainObject(stage)) return fail('That game has no stage.')
   if (!Array.isArray(stage.backdrops) || !stage.backdrops.every(isAssetRef)) {
     return fail('That game has a bad backdrop.')
   }
-  if (typeof stage.currentBackdrop !== 'number') return fail('That game has a bad backdrop choice.')
+  if (stage.backdrops.length === 0) return fail('That game has no backdrops.')
+  if (
+    !Number.isInteger(stage.currentBackdrop) ||
+    (stage.currentBackdrop as number) < 0 ||
+    (stage.currentBackdrop as number) >= stage.backdrops.length
+  ) {
+    return fail('That game is showing a backdrop it doesn\'t have.')
+  }
 
   if (!Array.isArray(value.sounds) || !value.sounds.every(isAssetRef)) {
     return fail('That game has a bad sound.')

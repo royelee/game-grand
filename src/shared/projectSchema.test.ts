@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseProjectDocument, validateProject, MAX_PROJECT_BYTES } from './projectSchema'
+import { parseProjectDocument, validateProject, MAX_PROJECT_BYTES, RESERVED_TAB_NAMES } from './projectSchema'
 import { addSprite, createEmptyProject, setScript } from './project'
 
 const good = () => {
@@ -56,6 +56,88 @@ describe('validateProject', () => {
     expect(
       validateProject({ ...project, sounds: [{ name: 'beep' }] }).ok,
     ).toBe(false)
+  })
+
+  it('rejects a currentCostume index out of range', () => {
+    const project = good()
+    const result = validateProject({
+      ...project,
+      sprites: [{ ...project.sprites[0], currentCostume: 999 }],
+    })
+    expect(result).toMatchObject({ ok: false })
+    if (!result.ok) expect(result.error).toMatch(/Cat/)
+  })
+
+  it('rejects a currentCostume that is not an integer', () => {
+    const project = good()
+    expect(
+      validateProject({ ...project, sprites: [{ ...project.sprites[0], currentCostume: 1.5 }] }).ok,
+    ).toBe(false)
+  })
+
+  it('rejects a sprite with an empty costumes array', () => {
+    const project = good()
+    expect(
+      validateProject({ ...project, sprites: [{ ...project.sprites[0], costumes: [] }] }).ok,
+    ).toBe(false)
+  })
+
+  it('rejects Infinity and -Infinity in numeric fields', () => {
+    const project = good()
+    expect(
+      validateProject({ ...project, sprites: [{ ...project.sprites[0], x: Infinity }] }).ok,
+    ).toBe(false)
+    expect(
+      validateProject({ ...project, sprites: [{ ...project.sprites[0], size: -Infinity }] }).ok,
+    ).toBe(false)
+  })
+
+  it('rejects NaN in stage.currentBackdrop', () => {
+    const project = good()
+    expect(
+      validateProject({ ...project, stage: { ...project.stage, currentBackdrop: NaN } }).ok,
+    ).toBe(false)
+  })
+
+  it('rejects stage.currentBackdrop past the end of backdrops', () => {
+    const project = good()
+    const result = validateProject({
+      ...project,
+      stage: { ...project.stage, currentBackdrop: 999 },
+    })
+    expect(result).toMatchObject({ ok: false })
+  })
+
+  it('rejects a stage with empty backdrops array', () => {
+    const project = good()
+    expect(
+      validateProject({ ...project, stage: { ...project.stage, backdrops: [] } }).ok,
+    ).toBe(false)
+  })
+
+  it('rejects a sprite named "main"', () => {
+    const project = good()
+    const result = validateProject({
+      ...project,
+      sprites: [{ ...project.sprites[0], name: 'main' }],
+    })
+    expect(result).toMatchObject({ ok: false })
+    if (!result.ok) expect(result.error).toMatch(/main script/)
+  })
+
+  it('rejects two sprites with the same name', () => {
+    const project = good()
+    const sprite = project.sprites[0]
+    const result = validateProject({
+      ...project,
+      sprites: [sprite, { ...sprite }],
+    })
+    expect(result).toMatchObject({ ok: false })
+    if (!result.ok) expect(result.error).toMatch(/both called/)
+  })
+
+  it('accepts an empty project from createEmptyProject', () => {
+    expect(validateProject(createEmptyProject()).ok).toBe(true)
   })
 })
 
