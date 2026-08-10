@@ -149,10 +149,20 @@ what Scratch does.
 what makes "clone an army of pens" projects work. The clone's first *move*
 starts its line; spawning alone draws nothing.
 
-**`stamp()`** queues `{kind:'stamp', spriteId}`; the scene resolves it against
-the `Phaser.GameObjects.Image` it already holds in `entries` and draws it into
-the render texture with its live transform. A hidden sprite stamps nothing —
-that falls out of the view's `alpha: 0`, and it is the rule a kid would guess.
+**`stamp()`** queues `{kind:'stamp', pose}`, where `pose` is a `RenderablePose`
+— the sprite's position, direction, size, rotation style, costume and effects,
+frozen at the moment of the call. A hidden sprite stamps nothing.
+
+The pose has to travel with the op. Carrying only a sprite id and resolving it
+against the live `Phaser.GameObjects.Image` at render time draws the stamp
+wherever the sprite *ended* the frame, so a script that stamps and then moves
+on leaves its stamp in the wrong place — or, if it moves onto the sprite's
+final position, appears to leave no stamp at all. That was implemented the
+wrong way first and caught by a screenshot, not by a test.
+
+`RenderablePose` lives in `runtime/spriteModel.ts` and is what `viewFor` takes,
+so a stamped pose renders by exactly the same rules a live sprite does; a
+snapshot sprite satisfies the shape structurally.
 
 **`eraseAll()`** queues a `clear` op rather than clearing eagerly, so ordering
 within a frame is preserved: `eraseAll()` and then drawing, in the same tick,
