@@ -1,0 +1,18 @@
+# Response headers for the static assets, applied by Cloudflare Workers.
+# This is the Cloudflare equivalent of what server/static.ts does for the
+# Fastify server, and it is load-bearing, not hygiene.
+#
+# The stage runs in <iframe sandbox="allow-scripts">, which gives it an opaque
+# origin, and module scripts are always fetched in CORS mode. Without
+# Access-Control-Allow-Origin the iframe cannot load its own bundle and the
+# stage silently stays blank — no error a kid or we would ever see.
+#
+# frame-ancestors stops another site from framing runtime.html to run code at
+# this origin. runtime-host/main.ts also refuses to run unless its own origin
+# is opaque, but that is a client-side check; this one is the server's.
+/runtime.html
+  Access-Control-Allow-Origin: *
+  Content-Security-Policy: frame-ancestors 'self'
+
+/assets/*
+  Access-Control-Allow-Origin: *

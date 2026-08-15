@@ -20,6 +20,8 @@
     "catalog": "node scripts/build-scratch-catalog.ts",
     "server": "node server/index.ts",
     "server:dev": "node --watch server/index.ts",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
     "typecheck:server": "tsc -p tsconfig.server.json",
     "typecheck:worker": "tsc -p worker/tsconfig.json"
   },
