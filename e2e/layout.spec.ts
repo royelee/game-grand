@@ -123,6 +123,13 @@ test('each pane scrolls inside its own box rather than growing the page', async 
 
   await page.getByRole('button', { name: '+ Add sprite' }).click()
   await expect(page.locator('.library-dialog')).toBeVisible()
+  // The dialog only overflows once the Scratch catalog has arrived — with the
+  // built-in five it comfortably fits. waitForLibrary above does not cover
+  // that: the catalog is a separate, non-fatal load (see App.tsx), and
+  // .library-count renders only when it has landed. Measuring before then
+  // asserts against a half-loaded dialog, which is why this flaked under a
+  // slower server rather than failing outright.
+  await expect(page.locator('.library-dialog .library-count')).toBeVisible()
   const body = await box(page, '.library-dialog .drawer-body')
   expect(body.scrollHeight).toBeGreaterThan(body.clientHeight)
   await page.locator('.library-dialog .drawer-body').evaluate(el => el.scrollBy(0, 2000))

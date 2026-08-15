@@ -50,7 +50,24 @@ export default {
 
     // Not an API route: hand it to the assets binding, which applies _headers
     // and the single-page-application fallback that serves the IDE for /p/<id>.
-    if (!result) return env.ASSETS.fetch(request)
+    if (!result) {
+      const asset = await env.ASSETS.fetch(request)
+
+      // That fallback is right for /p/<id> and wrong for /assets/. A missing
+      // bundle would come back as index.html with status 200, which the
+      // browser then feeds to <script type="module"> — turning a broken
+      // deploy into a silently blank stage instead of an error. The Fastify
+      // server refuses the same thing (server/static.ts, and there is a test
+      // for it), so the two deployments must not disagree here.
+      if (
+        url.pathname.startsWith('/assets/') &&
+        asset.headers.get('content-type')?.includes('text/html')
+      ) {
+        return new Response('Not found', { status: 404 })
+      }
+
+      return asset
+    }
 
     const headers = new Headers(result.headers)
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')

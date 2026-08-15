@@ -52,9 +52,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The same specs against three servers. The production bundle is a
-        # genuinely different code path from the dev server, and only the
-        # server mode runs the save/load specs.
+        # The same specs against four servers. The production bundle is a
+        # genuinely different code path from the dev server; the server and
+        # worker modes both run the save/load specs, against SQLite and D1
+        # respectively; and only the worker mode covers the _headers rules
+        # and the /p/<id> fallback that Cloudflare serves in production.
         include:
           - mode: dev
             target: test-e2e
@@ -62,6 +64,8 @@ jobs:
             target: test-e2e-prod
           - mode: server
             target: test-e2e-server
+          - mode: worker
+            target: test-e2e-worker
     steps:
       - uses: actions/checkout@v4
 

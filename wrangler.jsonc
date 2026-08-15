@@ -17,9 +17,11 @@
     // /p/<id> is a client route with no file behind it. The IDE reads the path
     // and opens that game — the same job server/static.ts's fallback does.
     "not_found_handling": "single-page-application",
-    // Only the API wakes the Worker. Everything else is served straight from
-    // the edge, keeping its _headers rules and costing no invocation.
-    "run_worker_first": ["/api/*"]
+    // The API, plus /assets/* — the Worker has to see asset misses to stop the
+    // single-page-application fallback returning index.html for a missing
+    // bundle. Everything else is served straight from the edge, keeping its
+    // _headers rules and costing no invocation.
+    "run_worker_first": ["/api/*", "/assets/*"]
   },
 
   "d1_databases": [
