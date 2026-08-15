@@ -20,6 +20,15 @@ export interface ApiResponse {
 export interface ApiDeps {
   store: ProjectStore
   now: () => number
+  /**
+   * Storage circuit breaker. POST /api/projects is unauthenticated and
+   * unmetered, so a loop of creates fills storage and takes everyone's saves
+   * down. A per-minute rate limit never notices a slow fill; this does.
+   *
+   * Only creates are refused. A full disk must never stop a kid saving work
+   * they already have a link to.
+   */
+  capacity?: { used(): Promise<number>; limit: number }
 }
 
 const notFound = (): ApiResponse => ({
@@ -63,6 +72,15 @@ export async function handleApiRequest(
   deps: ApiDeps,
 ): Promise<ApiResponse | null> {
   if (req.path === '/api/projects' && req.method === 'POST') {
+    if (deps.capacity && (await deps.capacity.used()) >= deps.capacity.limit) {
+      return {
+        status: 503,
+        body: {
+          error:
+            "We're keeping too many games right now, so we can't save a new one. Please try again later.",
+        },
+      }
+    }
     const checked = check(req.body)
     if ('status' in checked) return checked
     const id = await deps.store.create(checked.document, deps.now())

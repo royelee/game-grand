@@ -37,7 +37,15 @@ export default {
 
     const result = await handleApiRequest(
       { method: request.method, path: url.pathname, body: await readBody(request) },
-      { store, now: () => Date.now() },
+      {
+        store,
+        now: () => Date.now(),
+        // D1's free tier is 5 GB. At the 10 MB per-project cap that is ~500
+        // worst-case projects, but real ones are far smaller, so 50k rows is a
+        // deliberately conservative ceiling that still refuses a runaway loop
+        // long before storage is actually exhausted. Only consulted on create.
+        capacity: { used: () => store.countProjects(), limit: 50_000 },
+      },
     )
 
     // Not an API route: hand it to the assets binding, which applies _headers

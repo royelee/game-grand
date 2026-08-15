@@ -129,6 +129,48 @@ describe('handleApiRequest', () => {
     )
   })
 
+  it('refuses new games once storage is full, and says so for a kid', async () => {
+    const store = fakeStore()
+    const res = await handleApiRequest(
+      { method: 'POST', path: '/api/projects', body: project() },
+      { ...deps(store), capacity: { used: async () => 10_000, limit: 10_000 } },
+    )
+    expect(res?.status).toBe(503)
+    expect((res?.body as { error: string }).error).toBe(
+      "We're keeping too many games right now, so we can't save a new one. Please try again later.",
+    )
+  })
+
+  it('still lets an existing game be saved when storage is full', async () => {
+    const store = fakeStore()
+    const id = await createOne(store)
+    const res = await handleApiRequest(
+      { method: 'PUT', path: `/api/projects/${id}`, body: { ...project(), name: 'Kept' } },
+      { ...deps(store), capacity: { used: async () => 10_000, limit: 10_000 } },
+    )
+    expect(res?.status).toBe(200)
+    expect(JSON.parse(store.rows.get(id)!.document).name).toBe('Kept')
+  })
+
+  it('does not count storage when there is room, so the common path stays one query', async () => {
+    const store = fakeStore()
+    let counted = 0
+    await handleApiRequest(
+      { method: 'GET', path: '/api/projects/nope', body: null },
+      {
+        ...deps(store),
+        capacity: {
+          used: async () => {
+            counted++
+            return 0
+          },
+          limit: 10_000,
+        },
+      },
+    )
+    expect(counted).toBe(0)
+  })
+
   it('ignores a query string when matching a route', async () => {
     const store = fakeStore()
     const id = await createOne(store)
