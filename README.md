@@ -1,5 +1,8 @@
 # Game Grand
 
+[![CI](https://github.com/royelee/game-grand/actions/workflows/ci.yml/badge.svg)](https://github.com/royelee/game-grand/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A web playground where kids write **JavaScript** instead of dragging Scratch blocks.
 
 Stage on the left, [Monaco](https://microsoft.github.io/monaco-editor/) editor on the right.
@@ -89,6 +92,14 @@ npx vitest run -t 'glide resolves'
 npx playwright test e2e/ide.spec.ts -g 'clone'
 E2E_SERVER=1 npx playwright test e2e/save-load.spec.ts
 ```
+
+CI runs all of it on every push and pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): typecheck and the unit suite in
+one job, then the three e2e modes as a parallel matrix. Two notes if you touch it — the
+Scratch catalog is cached on the generator's hash so runs don't hammer
+`raw.githubusercontent.com`, and Playwright retries **only** under CI, because
+`adds a Scratch sprite with its whole costume set` really does download from
+`assets.scratch.mit.edu`. Locally retries stay off, where a retry would hide a real flake.
 
 Vitest runs in the **node** environment — no jsdom, no React component tests. Logic that
 needs testing is deliberately pulled out of components into plain modules (`store.ts`,
