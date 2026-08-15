@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run's result irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The server runs TypeScript directly via Node's type stripping, so this is
+  # the floor declared in package.json's engines field, not a preference.
+  NODE_VERSION: '24'
+
+jobs:
+  unit:
+    name: typecheck + unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # Both projects: tsconfig.json covers the client, tsconfig.server.json
+      # covers server/ and scripts/ under erasableSyntaxOnly.
+      - name: Typecheck
+        run: |
+          npx tsc --noEmit
+          npx tsc -p tsconfig.server.json
+
+      # Deliberately does not generate the Scratch catalog: the unit suite
+      # builds from inline fixtures, so this job stays network-free and fast.
+      - name: Unit tests
+        run: npm test
+
+  e2e:
+    name: e2e (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The same specs against three servers. The production bundle is a
+        # genuinely different code path from the dev server, and only the
+        # server mode runs the save/load specs.
+        include:
+          - mode: dev
+            target: test-e2e
+          - mode: preview
+            target: test-e2e-prod
+          - mode: server
+            target: test-e2e-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # Generated, never committed — it derives from AGPL-3.0 scratch-gui
+      # sources. Cached on the generator's hash, which contains the pinned
+      # scratch-gui SHA, so bumping that SHA invalidates the cache and every
+      # other run leaves raw.githubusercontent.com alone.
+      - name: Cache Scratch catalog
+        uses: actions/cache@v4
+        with:
+          path: public/library/scratch-catalog.json
+          key: scratch-catalog-${{ hashFiles('scripts/build-scratch-catalog.ts') }}
+
+      - name: Generate Scratch catalog
+        run: make catalog
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # The cache restores the browser binaries but not the system libraries
+      # they link against, so these are installed on every run regardless.
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run ${{ matrix.target }}
+        run: make ${{ matrix.target }}
+
+      # Traces and screenshots are retained on failure (playwright.config.ts),
+      # which is the only time this is worth uploading.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.mode }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

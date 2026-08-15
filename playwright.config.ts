@@ -14,7 +14,11 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // Locally a retry hides a real flake, so keep it at 0. CI is different:
+  // `adds a Scratch sprite with its whole costume set` downloads Abby's
+  // costumes from assets.scratch.mit.edu for real, so a hiccup at MIT would
+  // otherwise fail a run that has nothing wrong with it.
+  retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
   timeout: 30_000,
   expect: { timeout: 10_000 },
