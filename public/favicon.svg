@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Gold Gradients -->
+    <linearGradient id="gold-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE885"/>
+      <stop offset="50%" stop-color="#F7C433"/>
+      <stop offset="100%" stop-color="#E09A1B"/>
+    </linearGradient>
+
+    <linearGradient id="gold-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D6911C"/>
+      <stop offset="50%" stop-color="#B06D08"/>
+      <stop offset="100%" stop-color="#7A4800"/>
+    </linearGradient>
+
+    <linearGradient id="gold-base" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FCDD62"/>
+      <stop offset="30%" stop-color="#EBB328"/>
+      <stop offset="100%" stop-color="#B8760A"/>
+    </linearGradient>
+
+    <!-- Blue Shield Gradients -->
+    <linearGradient id="blue-left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B72DE"/>
+      <stop offset="100%" stop-color="#1D429B"/>
+    </linearGradient>
+
+    <linearGradient id="blue-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E4096"/>
+      <stop offset="100%" stop-color="#0F2359"/>
+    </linearGradient>
+
+    <!-- Gem Gradients -->
+    <radialGradient id="gem-blue" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#69C2FF"/>
+      <stop offset="30%" stop-color="#1B60E6"/>
+      <stop offset="70%" stop-color="#052B80"/>
+      <stop offset="100%" stop-color="#021542"/>
+    </radialGradient>
+
+    <radialGradient id="gem-red" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FF85A0"/>
+      <stop offset="30%" stop-color="#E61B4D"/>
+      <stop offset="75%" stop-color="#7A001E"/>
+      <stop offset="100%" stop-color="#38000B"/>
+    </radialGradient>
+
+    <!-- Common Styles -->
+    <style>
+      .dark-stroke { stroke: #12192C; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+      .thin-stroke { stroke: #12192C; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <g transform="translate(0, 10)">
+    <!-- ================= OUTER DARK SILHOUETTE / SHADOW ================= -->
+    <path d="
+      M 250 50 
+      C 265 75 285 85 295 85 C 290 105 275 115 270 120 C 290 115 310 125 320 145 C 330 130 350 115 380 150 C 400 170 365 245 365 245
+      L 360 380 C 360 380 345 425 250 455 C 155 425 140 380 140 380
+      L 135 245 C 135 245 100 170 120 150 C 150 115 170 130 180 145 C 190 125 210 115 230 120 C 225 115 210 105 205 85 C 215 85 235 75 250 50 Z" 
+      fill="#12192C"/>
+
+    <!-- ================= BOTTOM SCROLLWORK & DECORATIONS (BEHIND & LOWER) ================= -->
+    <!-- Outer Filigree Dark Backing & Gold Shapes -->
+    <g class="dark-stroke">
+      <!-- Lower Flourish Center Left -->
+      <path d="M 250 450 C 220 460 190 440 180 410 C 175 395 185 380 200 385 C 215 390 210 410 195 410 C 185 410 185 400 190 395" fill="url(#gold-dark)"/>
+      <!-- Lower Flourish Center Right -->
+      <path d="M 250 450 C 280 460 310 440 320 410 C 325 395 315 380 300 385 C 285 390 290 410 305 410 C 315 410 315 400 310 395" fill="url(#gold-light)"/>
+
+      <!-- Bottom Apex Scroll -->
+      <path d="M 250 465 C 235 445 235 420 250 400 C 265 420 265 445 250 465 Z" fill="url(#gold-light)"/>
+      <!-- Side Ears Left -->
+      <path d="M 145 360 C 125 350 120 380 140 390 C 155 398 165 385 155 370 C 150 362 140 368 145 375" fill="url(#gold-dark)"/>
+      <!-- Side Ears Right -->
+      <path d="M 355 360 C 375 350 380 380 360 390 C 345 398 335 385 345 370 C 350 362 360 368 355 375" fill="url(#gold-light)"/>
+    </g>
+
+    <!-- Bottom Jewels -->
+    <circle cx="250" cy="430" r="10" fill="url(#gem-blue)" class="dark-stroke"/>
+    <circle cx="170" cy="402" r="6" fill="url(#gem-red)" class="dark-stroke"/>
+    <circle cx="330" cy="402" r="6" fill="url(#gem-red)" class="dark-stroke"/>
+
+    <!-- ================= MAIN SHIELD FRAME ================= -->
+    <!-- Outer Golden Shield Body -->
+    <path d="M 130 250 L 370 250 L 355 375 C 355 375 330 425 250 450 C 170 425 145 375 145 375 Z" fill="url(#gold-base)" class="dark-stroke"/>
+    
+    <!-- Shield Shadow/Specular Split (Left Dark, Right Light Layer) -->
+    <path d="M 130 250 L 250 250 L 250 450 C 170 425 145 375 145 375 Z" fill="url(#gold-dark)"/>
+    <path d="M 250 250 L 370 250 L 355 375 C 355 375 330 425 250 450 Z" fill="url(#gold-light)"/>
+
+    <!-- Inner Shield Rim (Dark inset) -->
+    <path d="M 148 262 L 352 262 L 338 367 C 338 367 315 410 250 432 C 185 410 162 367 162 367 Z" fill="#12192C"/>
+
+    <!-- Inner Shield Blue Fill (Split Left/Right) -->
+    <path d="M 154 268 L 250 268 L 250 424 C 193 403 172 363 172 363 Z" fill="url(#blue-left)"/>
+    <path d="M 250 268 L 346 268 L 328 363 C 328 363 307 403 250 424 Z" fill="url(#blue-right)"/>
+
+    <!-- Inner Shield Highlight Border -->
+    <path d="M 160 274 L 340 274 L 324 358 C 324 358 300 395 250 415 C 200 395 176 358 176 358 Z" fill="none" stroke="#2B52B3" stroke-width="3"/>
+
+    <!-- ================= CROWN STRUCTURE ================= -->
+
+    <!-- Back Crown Spikes / Arch Interior Fill -->
+    <g class="dark-stroke">
+      <!-- Far Left Inner Spike -->
+      <path d="M 155 180 L 190 135 L 205 180 Z" fill="url(#gold-dark)"/>
+      <!-- Far Right Inner Spike -->
+      <path d="M 345 180 L 310 135 L 295 180 Z" fill="url(#gold-light)"/>
+      <!-- Center-Left Back Arch -->
+      <path d="M 195 160 Q 220 120 250 130" fill="none" stroke="url(#gold-dark)" stroke-width="14"/>
+      <!-- Center-Right Back Arch -->
+      <path d="M 305 160 Q 280 120 250 130" fill="none" stroke="url(#gold-light)" stroke-width="14"/>
+    </g>
+
+    <!-- Secondary Jewels on Back Spikes -->
+    <circle cx="190" cy="135" r="7" fill="url(#gem-red)" class="thin-stroke"/>
+    <circle cx="310" cy="135" r="7" fill="url(#gem-red)" class="thin-stroke"/>
+    <circle cx="215" cy="155" r="5" fill="url(#gem-blue)" class="thin-stroke"/>
+    <circle cx="285" cy="155" r="5" fill="url(#gem-blue)" class="thin-stroke"/>
+
+    <!-- Main Front Crown Body Base -->
+    <!-- Left Main Horn/Wing -->
+    <path d="M 105 150 C 120 180 135 220 155 240 L 250 240 L 220 180 C 180 150 130 135 105 150 Z" fill="url(#gold-dark)" class="dark-stroke"/>
+    <path d="M 112 155 C 128 180 140 210 155 232 L 240 232 C 200 200 170 180 125 152 Z" fill="url(#gold-light)"/>
+
+    <!-- Right Main Horn/Wing -->
+    <path d="M 395 150 C 380 180 365 220 345 240 L 250 240 L 280 180 C 320 150 370 135 395 150 Z" fill="url(#gold-light)" class="dark-stroke"/>
+    <path d="M 388 155 C 372 180 360 210 345 232 L 260 232 C 300 200 330 180 375 152 Z" fill="#FFE885"/>
+
+    <!-- Central Crown Arch & Center Structure -->
+    <path d="M 160 235 C 175 180 210 110 250 110 C 290 110 325 180 340 235 Z" fill="url(#gold-base)" class="dark-stroke"/>
+    <!-- Left/Right Shadow split on Center Front Arch -->
+    <path d="M 160 235 C 175 180 210 110 250 110 L 250 235 Z" fill="url(#gold-dark)"/>
+    <path d="M 250 110 C 290 110 325 180 340 235 L 250 235 Z" fill="url(#gold-light)"/>
+
+    <!-- Center Inner Cutout / Shadow Peak -->
+    <path d="M 200 230 C 210 190 230 145 250 145 C 270 145 290 190 300 230 Z" fill="#12192C"/>
+    <path d="M 208 230 C 215 198 230 158 250 158 C 270 158 285 198 292 230 Z" fill="url(#gold-base)"/>
+    <path d="M 208 230 C 215 198 230 158 250 158 L 250 230 Z" fill="url(#gold-dark)"/>
+
+    <!-- Crown Base Rim / Horizontal Band -->
+    <path d="M 130 235 L 370 235 L 365 255 L 135 255 Z" fill="url(#gold-light)" class="dark-stroke"/>
+    <path d="M 130 235 L 250 235 L 250 255 L 135 255 Z" fill="url(#gold-dark)"/>
+    <!-- Band Segments/Pillars -->
+    <path d="M 170 235 L 170 255 M 210 235 L 210 255 M 250 235 L 250 255 M 290 235 L 290 255 M 330 235 L 330 255" stroke="#12192C" stroke-width="3"/>
+
+    <!-- ================= CREST / FLEUR-DE-LIS (TOP CENTER) ================= -->
+    <g class="dark-stroke">
+      <!-- Outer Base Loops -->
+      <path d="M 230 110 C 210 110 195 85 215 70 C 230 60 240 80 235 95 Z" fill="url(#gold-dark)"/>
+      <path d="M 270 110 C 290 110 305 85 285 70 C 270 60 260 80 265 95 Z" fill="url(#gold-light)"/>
+
+      <!-- Central Flame / Petal -->
+      <path d="M 250 40 C 225 70 235 100 250 115 C 265 100 275 70 250 40 Z" fill="url(#gold-light)"/>
+      <path d="M 250 40 C 235 70 242 100 250 115 Z" fill="url(#gold-dark)"/>
+
+      <!-- Fleur Tie / Ring -->
+      <path d="M 225 100 C 240 95 260 95 275 100 C 270 108 230 108 225 100 Z" fill="url(#gold-light)"/>
+    </g>
+
+    <!-- ================= GEMSTONES ================= -->
+
+    <!-- Top Fleur-de-lis Gem -->
+    <circle cx="250" cy="85" r="9" fill="url(#gem-blue)" class="dark-stroke"/>
+    <circle cx="247" cy="82" r="3" fill="#FFFFFF" opacity="0.7"/>
+
+    <!-- Large Center Crown Gem -->
+    <circle cx="250" cy="210" r="18" fill="url(#gem-blue)" class="dark-stroke"/>
+    <ellipse cx="244" cy="203" rx="6" ry="4" fill="#FFFFFF" opacity="0.8" transform="rotate(-20 244 203)"/>
+
+    <!-- Main Left Wing Gem (Red Drop/Somb) -->
+    <path d="M 150 160 Q 158 170 150 180 Q 142 170 150 160 Z" fill="url(#gem-red)" class="dark-stroke"/>
+    <!-- Main Right Wing Gem (Red Drop/Somb) -->
+    <path d="M 350 160 Q 358 170 350 180 Q 342 170 350 160 Z" fill="url(#gem-red)" class="dark-stroke"/>
+
+    <!-- Left/Right Outer Tip Jewels -->
+    <circle cx="150" cy="168" r="10" fill="url(#gem-red)" class="dark-stroke"/>
+    <circle cx="350" cy="168" r="10" fill="url(#gem-red)" class="dark-stroke"/>
+    <circle cx="148" cy="165" r="3" fill="#FFFFFF" opacity="0.7"/>
+    <circle cx="348" cy="165" r="3" fill="#FFFFFF" opacity="0.7"/>
+
+    <!-- Diamond Gems on Crown Base Rim -->
+    <polygon points="168,205 174,213 168,221 162,213" fill="url(#gem-red)" class="thin-stroke"/>
+    <polygon points="332,205 338,213 332,221 326,213" fill="url(#gem-red)" class="thin-stroke"/>
+
+    <!-- ================= HIGHLIGHTS & FINISHING TOUCHES ================= -->
+    <!-- Subtle shine lines on shield -->
+    <path d="M 175 280 L 235 280 L 185 380 L 175 360 Z" fill="#FFFFFF" opacity="0.06"/>
+  </g>
+</svg>
