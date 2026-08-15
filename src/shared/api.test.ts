@@ -129,6 +129,48 @@ describe('handleApiRequest', () => {
     )
   })
 
+  it('refuses a caller making games too fast, in words a kid can read', async () => {
+    const store = fakeStore()
+    const res = await handleApiRequest(
+      { method: 'POST', path: '/api/projects', body: project() },
+      { ...deps(store), rateLimit: async () => false },
+    )
+    expect(res?.status).toBe(429)
+    expect((res?.body as { error: string }).error).toBe(
+      "You're making new games very quickly! Wait a moment, then try again.",
+    )
+  })
+
+  it('never rate-limits saving a game that already exists', async () => {
+    const store = fakeStore()
+    const id = await createOne(store)
+    const res = await handleApiRequest(
+      { method: 'PUT', path: `/api/projects/${id}`, body: { ...project(), name: 'Kept' } },
+      { ...deps(store), rateLimit: async () => false },
+    )
+    expect(res?.status).toBe(200)
+  })
+
+  it('checks the rate limit before counting storage, so a flood costs one check', async () => {
+    const store = fakeStore()
+    let counted = 0
+    await handleApiRequest(
+      { method: 'POST', path: '/api/projects', body: project() },
+      {
+        ...deps(store),
+        rateLimit: async () => false,
+        capacity: {
+          used: async () => {
+            counted++
+            return 0
+          },
+          limit: 10,
+        },
+      },
+    )
+    expect(counted).toBe(0)
+  })
+
   it('refuses new games once storage is full, and says so for a kid', async () => {
     const store = fakeStore()
     const res = await handleApiRequest(

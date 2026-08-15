@@ -1,9 +1,18 @@
 import { handleApiRequest } from '../src/shared/api.ts'
 import { D1ProjectStore } from './d1Store.ts'
 
+/**
+ * The Workers Rate Limiting binding. Declared by hand because it is not in
+ * @cloudflare/workers-types yet.
+ */
+interface RateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>
+}
+
 export interface Env {
   DB: D1Database
   ASSETS: Fetcher
+  CREATE_LIMITER: RateLimiter
 }
 
 /**
@@ -40,6 +49,19 @@ export default {
       {
         store,
         now: () => Date.now(),
+        // Per-IP limit on creating games. WAF rate limiting rules are a
+        // zone feature and this deployment has no zone — workers.dev is
+        // Cloudflare's domain, not ours — so the limit lives here instead,
+        // which also makes it version-controlled and testable.
+        //
+        // CF-Connecting-IP is set by Cloudflare's edge and cannot be spoofed
+        // by a client. Falling back to a constant when it is somehow absent
+        // fails closed onto a shared bucket rather than opening the door.
+        rateLimit: async () => {
+          const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown'
+          const { success } = await env.CREATE_LIMITER.limit({ key: ip })
+          return success
+        },
         // D1's free tier is 5 GB. At the 10 MB per-project cap that is ~500
         // worst-case projects, but real ones are far smaller, so 50k rows is a
         // deliberately conservative ceiling that still refuses a runaway loop
