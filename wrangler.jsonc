@@ -28,10 +28,9 @@
     {
       "binding": "DB",
       "database_name": "game-grand",
-      // Replace with the id printed by `npx wrangler d1 create game-grand`.
       // `wrangler dev --local` ignores this and uses a local SQLite file, so
-      // the whole app can be run and tested before a real database exists.
-      "database_id": "REPLACE_AFTER_CREATING_THE_DATABASE"
+      // the whole app can be run and tested without touching this database.
+      "database_id": "3c8a59c6-c709-48ff-aad9-2327e92b6a09"
     }
   ],
 
