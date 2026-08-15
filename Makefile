@@ -3,7 +3,9 @@
 DEV_PORT  ?= 5173
 PROD_PORT ?= 4173
 
-.PHONY: help install build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev
+CATALOG := public/library/scratch-catalog.json
+
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -17,13 +19,24 @@ node_modules: package.json package-lock.json
 
 install: node_modules ## Install dependencies
 
-build: node_modules ## Typecheck and build to dist/
+# Generated, never committed. It is derived from scratch-gui's library JSONs,
+# which are AGPL-3.0, so keeping it out of the repo keeps this project's own
+# license unentangled — see public/library/LICENSE.md. Needs network. Its only
+# prerequisite is the generator, so bumping SCRATCH_GUI_SHA re-downloads it.
+# Missing is survivable: the library dialog says the Scratch tab is
+# unavailable and the ten built-in assets still work.
+$(CATALOG): scripts/build-scratch-catalog.ts | node_modules
+	node scripts/build-scratch-catalog.ts
+
+catalog: $(CATALOG) ## Download the Scratch library catalog (needs network)
+
+build: node_modules $(CATALOG) ## Typecheck and build to dist/
 	npm run build
 
 # Save/Load need the Fastify server too — vite.config.ts proxies /api to
 # http://localhost:8080, so run `make server-dev` in another shell (after at
 # least one `make build`) alongside this target.
-dev: node_modules ## Run the dev server with hot reload (Save/Load need `make server-dev` too)
+dev: node_modules $(CATALOG) ## Run the dev server with hot reload (Save/Load need `make server-dev` too)
 	npm run dev -- --port $(DEV_PORT)
 
 # Also proxies /api to http://localhost:8080 (see vite.config.ts) — pair with
@@ -37,13 +50,16 @@ test: test-unit ## Alias for test-unit
 test-unit: node_modules ## Run the Vitest unit suite
 	npm test
 
-test-e2e: node_modules ## Run Playwright against the dev server
+# The e2e suite drives the real library dialog, so it needs the catalog;
+# test-unit deliberately does not (it builds from inline fixtures), which
+# keeps the fast suite runnable with no network.
+test-e2e: node_modules $(CATALOG) ## Run Playwright against the dev server
 	npx playwright test
 
-test-e2e-prod: node_modules ## Run Playwright against the production build
+test-e2e-prod: node_modules $(CATALOG) ## Run Playwright against the production build
 	E2E_PREVIEW=1 npx playwright test
 
-test-e2e-server: node_modules ## Run Playwright against the real Fastify server
+test-e2e-server: node_modules $(CATALOG) ## Run Playwright against the real Fastify server
 	E2E_SERVER=1 npx playwright test
 
 test-all: test-unit test-e2e test-e2e-prod test-e2e-server ## Run every suite
