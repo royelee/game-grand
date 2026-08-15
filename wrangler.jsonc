@@ -39,14 +39,22 @@
 
   // Per-IP limit on POST /api/projects. docs/TODO.md records unmetered
   // anonymous creates as a hard pre-deployment blocker; this is that limit.
-  // The period must be 10 or 60 seconds — 10 creates a minute is far above
-  // what a kid does by hand and far below what a script needs to be a
-  // problem. Only creates are limited; saving an existing game never is.
+  // Only creates are limited — saving an existing game never is.
+  //
+  // 60/minute, not the 10 this started as. A school, a library or a family
+  // shares one public IP, and a classroom of thirty kids all starting a game
+  // in the same lesson is exactly this app's audience: at 10 the eleventh
+  // child is told to wait, which is a worse failure than the abuse being
+  // prevented. 60 lets that class start twice over while still stopping a
+  // script cold, and the row-count breaker bounds what a patient attacker
+  // can accumulate anyway.
+  //
+  // The period must be 10 or 60 seconds.
   "ratelimits": [
     {
       "name": "CREATE_LIMITER",
       "namespace_id": "1001",
-      "simple": { "limit": 10, "period": 60 }
+      "simple": { "limit": 60, "period": 60 }
     }
   ],
 
