@@ -21,3 +21,7 @@ public/library/scratch-catalog.json
 .env
 .env.*
 !.env.example
+
+# Wrangler's local state, including the local D1 database that `wrangler dev
+# --local` writes real project documents into. Same reasoning as projects.db.
+.wrangler/

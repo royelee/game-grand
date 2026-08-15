@@ -17,8 +17,9 @@ make build            # tsc --noEmit + tsc -p tsconfig.server.json + vite build
 make test-unit        # vitest run (~320 tests, sub-second)
 make test-e2e         # Playwright against the dev server
 make test-e2e-prod    # E2E_PREVIEW=1 — the production bundle is a different code path
-make test-e2e-server  # E2E_SERVER=1 — real Fastify + disposable SQLite; only mode that runs save/load specs
-make test-all         # all four
+make test-e2e-server  # E2E_SERVER=1 — real Fastify + disposable SQLite; runs the save/load specs
+make test-e2e-worker  # E2E_WORKER=1 — real Cloudflare Worker via `wrangler dev` + local D1 (no account needed)
+make test-all         # all five
 ```
 
 Single tests:

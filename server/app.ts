@@ -1,7 +1,7 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { ProjectStore } from './db.ts'
+import { SqliteProjectStore } from './db.ts'
 import { registerProjectRoutes } from './routes.ts'
 import { registerStatic } from './static.ts'
 import { MAX_PROJECT_BYTES } from '../src/shared/projectSchema.ts'
@@ -15,7 +15,7 @@ export interface AppOptions {
   // output instead of writing it to stdout, so the redaction can be verified
   // against what Fastify actually logs rather than trusted on faith.
   logger?: boolean | { stream: NodeJS.WritableStream }
-  store?: ProjectStore
+  store?: SqliteProjectStore
   now?: () => number
   // The built client to serve. Defaults to `dist/` next to the server.
   // Tests that only care about the API pass `null` so a stray `dist/` on
@@ -49,7 +49,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     bodyLimit: MAX_PROJECT_BYTES + 1024,
   })
 
-  const store = options.store ?? new ProjectStore(process.env.DB_FILE ?? 'projects.db')
+  const store = options.store ?? new SqliteProjectStore(process.env.DB_FILE ?? 'projects.db')
 
   // A body past `bodyLimit` never reaches a handler, so translate Fastify's
   // own error into the same message our size check produces.

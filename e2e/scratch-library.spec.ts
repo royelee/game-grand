@@ -54,7 +54,10 @@ test('shows a friendly error and keeps the built-ins when the CDN is down', asyn
 })
 
 test.describe('saved games', () => {
-  test.skip(!process.env.E2E_SERVER, 'Saving needs the real server (run with E2E_SERVER=1)')
+  test.skip(
+    !process.env.E2E_SERVER && !process.env.E2E_WORKER,
+    'Saving needs a real server (run with E2E_SERVER=1 or E2E_WORKER=1)',
+  )
 
   test('a Scratch costume survives a save and reload', async ({ page }) => {
     await page.getByRole('button', { name: '+ Add sprite' }).click()

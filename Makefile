@@ -5,7 +5,7 @@ PROD_PORT ?= 4173
 
 CATALOG := public/library/scratch-catalog.json
 
-.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -62,13 +62,28 @@ test-e2e-prod: node_modules $(CATALOG) ## Run Playwright against the production 
 test-e2e-server: node_modules $(CATALOG) ## Run Playwright against the real Fastify server
 	E2E_SERVER=1 npx playwright test
 
-test-all: test-unit test-e2e test-e2e-prod test-e2e-server ## Run every suite
+# The only mode covering D1, the _headers rules and the /p/<id> fallback.
+# `--local` means no Cloudflare account is needed.
+test-e2e-worker: node_modules $(CATALOG) ## Run Playwright against the local Cloudflare Worker
+	E2E_WORKER=1 npx playwright test
+
+test-all: test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker ## Run every suite
 
 server: build ## Build the client, then run the server on PORT (default 8080)
 	npm run server
 
 server-dev: node_modules ## Run the server with reload (client must be built)
 	npm run server:dev
+
+# `--local` runs a real Worker against a local D1 file, so this needs no
+# Cloudflare account and no database_id in wrangler.jsonc. It is the only way
+# to exercise the _headers rules and the /p/<id> fallback before deploying.
+worker-dev: build ## Run the Cloudflare Worker locally against a local D1
+	npx wrangler d1 migrations apply game-grand --local
+	npm run worker:dev
+
+deploy: ## Deploy to Cloudflare (needs .env with CLOUDFLARE_API_TOKEN)
+	./scripts/deploy.sh
 
 clean: ## Remove build output and test artifacts
 	rm -rf dist test-results playwright-report

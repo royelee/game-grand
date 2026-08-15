@@ -76,11 +76,13 @@ make server         # builds the client, then serves dist/ + the API on :8080
 ## Tests
 
 ```bash
-make test-unit        # vitest — 371 tests across 38 files, sub-second
+make test-unit        # vitest — 385 tests across 39 files, sub-second
 make test-e2e         # Playwright against the dev server
 make test-e2e-prod    # E2E_PREVIEW=1 — the production bundle is a different code path
-make test-e2e-server  # E2E_SERVER=1 — real Fastify + disposable SQLite; the only mode
-                      #                that runs the save/load specs
+make test-e2e-server  # E2E_SERVER=1 — real Fastify + disposable SQLite; runs the save/load specs
+make test-e2e-worker  # E2E_WORKER=1 — the real Cloudflare Worker via `wrangler dev` against
+                      #                a local D1. No Cloudflare account needed. The only mode
+                      #                covering the _headers rules and the /p/<id> fallback.
 make test-all
 ```
 
@@ -95,7 +97,7 @@ E2E_SERVER=1 npx playwright test e2e/save-load.spec.ts
 
 CI runs all of it on every push and pull request
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): typecheck and the unit suite in
-one job, then the three e2e modes as a parallel matrix. Two notes if you touch it — the
+one job, then the four e2e modes as a parallel matrix. Two notes if you touch it — the
 Scratch catalog is cached on the generator's hash so runs don't hammer
 `raw.githubusercontent.com`, and Playwright retries **only** under CI, because
 `adds a Scratch sprite with its whole costume set` really does download from
@@ -109,13 +111,16 @@ cannot — see the CORS note below.
 
 ## Architecture
 
-Three entry points, one shared vocabulary:
+Four entry points, one shared vocabulary. The last two are the same API: `server/` and
+`worker/` are thin adapters over `src/shared/api.ts`, so the development and production
+deployments cannot answer a request differently.
 
 | Entry | Built from | Runs |
 |---|---|---|
 | `index.html` → `src/main.tsx` | `src/ide/**` | The React IDE shell |
 | `runtime.html` → `src/runtime-host/main.ts` | `src/runtime-host/**` + `src/runtime/**` | Phaser + user code, inside a sandboxed iframe |
-| `server/index.ts` | `server/**` | Fastify + SQLite, also serves `dist/` |
+| `server/index.ts` | `server/**` | Fastify + SQLite, also serves `dist/` — development |
+| `worker/index.ts` | `worker/**` + `src/shared/**` | Cloudflare Worker + D1, also serves `dist/` — production |
 
 ```
 ┌─────────────────────────── React IDE shell ───────────────────────────┐
@@ -151,8 +156,12 @@ Three entry points, one shared vocabulary:
 - **`src/ide/`** — the React shell. `store.ts` is a reducer holding all IDE state,
   `bridge.ts` is the parent half of the iframe protocol, `library.ts` / `scratchAssets.ts`
   / `upload.ts` / `rehydrate.ts` handle assets, `api.ts` talks to the server.
-- **`server/`** — `app.ts` (wiring, error handler, log redaction), `routes.ts` (three
-  endpoints), `db.ts` (SQLite via `node:sqlite`), `static.ts`, `ids.ts`.
+- **`server/`** — the development server. `app.ts` (wiring, error handler, log redaction),
+  `routes.ts` (a Fastify adapter over `src/shared/api.ts`), `db.ts` (SQLite via
+  `node:sqlite`), `static.ts`, `ids.ts`.
+- **`worker/`** — the production server. `index.ts` (a Cloudflare adapter over the same
+  `src/shared/api.ts`), `d1Store.ts`. No `node:` builtins exist here; `worker/tsconfig.json`
+  typechecks it against Cloudflare's types so one cannot sneak in.
 
 ### The iframe boundary is the central design fact
 
@@ -274,6 +283,44 @@ knowingly accepted trade-offs.
 - `server/` and `scripts/` import with explicit `.ts` extensions and are typechecked under
   `tsconfig.server.json` with `erasableSyntaxOnly`: no enums, no parameter properties, no
   decorators in those directories, because Node strips types rather than compiling them.
+
+## Deploying
+
+Production runs on Cloudflare: the built client on Workers static assets, the three API
+endpoints on a Worker, saved games in D1. The Fastify server in `server/` remains the
+development server — `make server` and `make test-e2e-server` are unchanged.
+
+One-time setup:
+
+```bash
+npx wrangler d1 create game-grand      # paste the printed id into wrangler.jsonc
+npx wrangler d1 migrations apply game-grand --remote
+cp .env.example .env                   # add a token scoped to Workers Scripts + D1 only
+```
+
+Then, from `main` with a clean tree:
+
+```bash
+make deploy
+```
+
+Deploys run from your machine, not CI, so the script is the gate CI would otherwise be: it
+refuses to run off `main`, refuses a dirty tree, and runs the typechecks, unit suite, and
+build before shipping. `.env` is gitignored and must stay that way — this repository is
+public, and a committed token stays leaked whatever the history says afterwards.
+
+To run the real Worker locally against a local D1, with **no Cloudflare account needed**:
+
+```bash
+make worker-dev        # http://localhost:5177
+make test-e2e-worker   # the full e2e suite against it
+```
+
+That mode is the only one covering the `_headers` rules, the `/p/<id>` fallback, and D1.
+It has already earned its keep: Cloudflare's default `html_handling` redirects
+`/runtime.html` to `/runtime`, where the header rules no longer match — dropping the
+`Access-Control-Allow-Origin` the sandboxed stage needs and the `frame-ancestors` that
+protects it. `wrangler.jsonc` sets `html_handling: "none"` for exactly that reason.
 
 ## Licensing
 

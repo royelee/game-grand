@@ -4,6 +4,10 @@
     "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // Permitted, not required. src/shared modules that server/ imports must
+    // carry explicit .ts extensions to satisfy its NodeNext resolution, and
+    // this lets the client typecheck accept the same specifiers.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,

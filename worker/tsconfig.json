@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    // The Worker runtime has no node: builtins and no filesystem. Nothing here
+    // may import from server/.
+    "lib": ["ES2022"]
+  },
+  // Test files are excluded rather than merely unlisted: they legitimately use
+  // vitest and node APIs that do not exist in the Workers runtime, and none of
+  // them ship to the edge. Only what the Worker actually imports is checked
+  // against Workers types.
+  // Exclude globs resolve relative to this file's directory, so the shared
+  // path has to be spelled out — "**/*.test.ts" alone never reaches ../src.
+  "include": ["./**/*.ts", "../src/shared/**/*.ts"],
+  "exclude": ["./**/*.test.ts", "../src/shared/**/*.test.ts"]
+}

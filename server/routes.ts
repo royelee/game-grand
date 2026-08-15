@@ -1,59 +1,38 @@
-import type { FastifyInstance } from 'fastify'
-import type { ProjectStore } from './db.ts'
-import {
-  MAX_PROJECT_BYTES,
-  validateProject,
-} from '../src/shared/projectSchema.ts'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { handleApiRequest, type ApiDeps } from '../src/shared/api.ts'
 
-export interface RouteDeps {
-  store: ProjectStore
-  now: () => number
-}
+export type RouteDeps = ApiDeps
 
 /**
- * Checks an incoming body and returns the document to store, or the reply to
- * send instead. Validation happens before anything touches the database.
+ * The Fastify half of the API. All of the behaviour — validation, the size
+ * cap, the kid-facing messages, the nosniff header — lives in
+ * `src/shared/api.ts`, which the Cloudflare Worker calls too. This file only
+ * translates Fastify's request into a plain one and its response back out,
+ * so the two deployments cannot answer the same request differently.
  */
-function check(body: unknown): { document: string } | { status: number; error: string } {
-  const result = validateProject(body)
-  if (!result.ok) return { status: 400, error: result.error }
-  const document = JSON.stringify(result.project)
-  if (Buffer.byteLength(document, 'utf8') > MAX_PROJECT_BYTES) {
-    return { status: 413, error: 'That game is too big to save. Try using smaller pictures.' }
-  }
-  return { document }
-}
-
 export function registerProjectRoutes(app: FastifyInstance, deps: RouteDeps): void {
-  app.post('/api/projects', async (request, reply) => {
-    const checked = check(request.body)
-    if ('error' in checked) return reply.code(checked.status).send({ error: checked.error })
-    const id = deps.store.create(checked.document, deps.now())
-    return reply.code(201).send({ id })
-  })
+  const handle = async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
+    // Fastify's `url` carries the query string; the shared router matches on
+    // the path alone.
+    const path = request.url.split('?')[0]
+    const result = await handleApiRequest(
+      { method: request.method, path, body: request.body },
+      deps,
+    )
 
-  app.get<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const found = deps.store.load(request.params.id)
-    if (!found) {
+    // Only reachable if Fastify routed something the shared handler does not
+    // recognise, which would mean the two disagree about what an API route is.
+    if (!result) {
       return reply.code(404).send({ error: "We couldn't find a game with that link." })
     }
-    // The body is attacker-authored (a sprite script is an arbitrary string
-    // someone typed) and this is a plain, navigable URL. `nosniff` stops a
-    // browser that ignores the declared JSON type from guessing its way into
-    // treating the response as HTML and running it.
-    return reply
-      .header('X-Content-Type-Options', 'nosniff')
-      .type('application/json')
-      .send(found.document)
-  })
 
-  app.put<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const checked = check(request.body)
-    if ('error' in checked) return reply.code(checked.status).send({ error: checked.error })
-    const saved = deps.store.update(request.params.id, checked.document, deps.now())
-    if (!saved) {
-      return reply.code(404).send({ error: "We couldn't find a game with that link." })
+    for (const [name, value] of Object.entries(result.headers ?? {})) {
+      reply.header(name, value)
     }
-    return reply.send({ ok: true })
-  })
+    return reply.code(result.status).send(result.body)
+  }
+
+  app.post('/api/projects', handle)
+  app.get('/api/projects/:id', handle)
+  app.put('/api/projects/:id', handle)
 }

@@ -1,9 +1,4 @@
-import { randomBytes } from 'node:crypto'
-
-/**
- * A project id is a capability: whoever holds it can read and write that
- * project. 16 random bytes (22 base64url characters) is far past guessing.
- */
-export function newProjectId(): string {
-  return randomBytes(16).toString('base64url')
-}
+// Kept as a re-export so server/ imports do not all have to change, and so
+// there is exactly one implementation to audit. The shared one uses Web
+// Crypto, which Cloudflare Workers has and node:crypto's randomBytes is not.
+export { newProjectId } from '../src/shared/ids.ts'

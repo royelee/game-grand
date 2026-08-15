@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The deployed URL is <name>.<account-subdomain>.workers.dev, and the
+  // account subdomain is already "game-grand" — so naming the Worker
+  // "game-grand" too produced game-grand.game-grand.workers.dev.
+  "name": "play",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-15",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Serve the exact path requested. The default ("auto-trailing-slash")
+    // 307s /runtime.html to /runtime, and the _headers rules are keyed to
+    // /runtime.html — so the redirect target arrived with neither
+    // Access-Control-Allow-Origin nor frame-ancestors. That is the silent
+    // blank stage, plus a quietly dropped security header, and it only
+    // reproduces on Cloudflare. Verified against `wrangler dev`.
+    "html_handling": "none",
+    // /p/<id> is a client route with no file behind it. The IDE reads the path
+    // and opens that game — the same job server/static.ts's fallback does.
+    "not_found_handling": "single-page-application",
+    // The API, plus /assets/* — the Worker has to see asset misses to stop the
+    // single-page-application fallback returning index.html for a missing
+    // bundle. Everything else is served straight from the edge, keeping its
+    // _headers rules and costing no invocation.
+    "run_worker_first": ["/api/*", "/assets/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "game-grand",
+      // `wrangler dev --local` ignores this and uses a local SQLite file, so
+      // the whole app can be run and tested without touching this database.
+      "database_id": "3c8a59c6-c709-48ff-aad9-2327e92b6a09"
+    }
+  ],
+
+  "observability": {
+    // Metrics yes, request logs no. A request URL here contains a project id,
+    // which is a capability — server/app.ts redacts it from pino output for
+    // exactly this reason, and Cloudflare's own logging must not undo that.
+    "enabled": true,
+    "logs": { "enabled": false }
+  }
+}

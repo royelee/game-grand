@@ -3,7 +3,10 @@ import {
   addSpriteFromLibrary, consoleLines, editorText, run, setEditorContent, stage, tinyPngBuffer, waitForLibrary,
 } from './helpers'
 
-test.skip(!process.env.E2E_SERVER, 'Saving needs the real server (run with E2E_SERVER=1)')
+test.skip(
+  !process.env.E2E_SERVER && !process.env.E2E_WORKER,
+  'Saving needs a real server (run with E2E_SERVER=1 or E2E_WORKER=1)',
+)
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
