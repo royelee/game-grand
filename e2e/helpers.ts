@@ -103,8 +103,18 @@ export async function setEditorContent(page: Page, code: string): Promise<void> 
     await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.press('Delete')
     await page.keyboard.press('ControlOrMeta+V')
-    if ((await editorText(page)) === normalize(code)) return
-    await page.waitForTimeout(150)
+    // Poll rather than read once. Monaco applies a paste asynchronously and
+    // the editor is a controlled React component, so the text round-trips
+    // through onChange and a re-render before it settles. Reading immediately
+    // won the race on a dev machine and lost it on a CI runner, and losing it
+    // was expensive: the loop pasted again into text that was already correct,
+    // and each extra paste compounded the mismatch instead of recovering.
+    try {
+      await expect.poll(() => editorText(page), { timeout: 2_000 }).toBe(normalize(code))
+      return
+    } catch {
+      // Not settled within the budget — fall through and replace it again.
+    }
   }
   throw new Error(
     `Could not set the editor to:\n${normalize(code)}\n\nIt ended up as:\n${await editorText(page)}`,
