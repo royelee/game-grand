@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { newProjectId } from './ids.ts'
+import type { ProjectStore, StoredProject } from '../src/shared/projectStore.ts'
 
 // Loaded through createRequire rather than a static import: Vite (which powers
 // Vitest) strips the `node:` prefix from builtins it doesn't know about and
@@ -17,18 +18,17 @@ const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as {
   }
 }
 
-export interface StoredProject {
-  id: string
-  document: string
-  createdAt: number
-  updatedAt: number
-}
+export type { StoredProject }
 
 /**
  * Stores project documents as opaque JSON strings. Validation happens above
  * this layer; the store's only job is durable, verbatim storage.
+ *
+ * The methods are async only because the interface is: D1, the Cloudflare
+ * backend behind the same interface, cannot be synchronous. DatabaseSync
+ * underneath is still synchronous.
  */
-export class ProjectStore {
+export class SqliteProjectStore implements ProjectStore {
   private db: InstanceType<typeof DatabaseSync>
 
   constructor(filename: string) {
@@ -43,7 +43,7 @@ export class ProjectStore {
     `)
   }
 
-  create(document: string, now: number): string {
+  async create(document: string, now: number): Promise<string> {
     const id = newProjectId()
     this.db
       .prepare('INSERT INTO projects (id, document, created_at, updated_at) VALUES (?, ?, ?, ?)')
@@ -51,7 +51,7 @@ export class ProjectStore {
     return id
   }
 
-  load(id: string): StoredProject | null {
+  async load(id: string): Promise<StoredProject | null> {
     const row = this.db
       .prepare('SELECT id, document, created_at, updated_at FROM projects WHERE id = ?')
       .get(id) as
@@ -66,7 +66,7 @@ export class ProjectStore {
     }
   }
 
-  update(id: string, document: string, now: number): boolean {
+  async update(id: string, document: string, now: number): Promise<boolean> {
     const result = this.db
       .prepare('UPDATE projects SET document = ?, updated_at = ? WHERE id = ?')
       .run(document, now, id)

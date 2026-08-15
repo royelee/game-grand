@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import type { ProjectStore } from './db.ts'
+import type { ProjectStore } from '../src/shared/projectStore.ts'
 import {
   MAX_PROJECT_BYTES,
   validateProject,
@@ -28,12 +28,12 @@ export function registerProjectRoutes(app: FastifyInstance, deps: RouteDeps): vo
   app.post('/api/projects', async (request, reply) => {
     const checked = check(request.body)
     if ('error' in checked) return reply.code(checked.status).send({ error: checked.error })
-    const id = deps.store.create(checked.document, deps.now())
+    const id = await deps.store.create(checked.document, deps.now())
     return reply.code(201).send({ id })
   })
 
   app.get<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
-    const found = deps.store.load(request.params.id)
+    const found = await deps.store.load(request.params.id)
     if (!found) {
       return reply.code(404).send({ error: "We couldn't find a game with that link." })
     }
@@ -50,7 +50,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: RouteDeps): vo
   app.put<{ Params: { id: string } }>('/api/projects/:id', async (request, reply) => {
     const checked = check(request.body)
     if ('error' in checked) return reply.code(checked.status).send({ error: checked.error })
-    const saved = deps.store.update(request.params.id, checked.document, deps.now())
+    const saved = await deps.store.update(request.params.id, checked.document, deps.now())
     if (!saved) {
       return reply.code(404).send({ error: "We couldn't find a game with that link." })
     }

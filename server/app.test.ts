@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildApp } from './app.ts'
-import { ProjectStore } from './db.ts'
+import { SqliteProjectStore } from './db.ts'
 import type { FastifyInstance } from 'fastify'
 
 const project = () => ({
@@ -25,11 +25,11 @@ const project = () => ({
 })
 
 let app: FastifyInstance
-let store: ProjectStore
+let store: SqliteProjectStore
 let clock = 1000
 
 beforeEach(() => {
-  store = new ProjectStore(':memory:')
+  store = new SqliteProjectStore(':memory:')
   clock = 1000
   app = buildApp({ store, now: () => clock, staticRoot: null })
 })
@@ -47,7 +47,7 @@ describe('POST /api/projects', () => {
     expect(res.statusCode).toBe(201)
     const { id } = res.json()
     expect(id).toMatch(/^[A-Za-z0-9_-]{22}$/)
-    expect(store.load(id)).not.toBeNull()
+    expect(await store.load(id)).not.toBeNull()
   })
 
   it('rejects a document that is not a game', async () => {
@@ -93,9 +93,9 @@ describe('PUT /api/projects/:id', () => {
     const edited = { ...project(), name: 'Cat Chase 2' }
     const res = await app.inject({ method: 'PUT', url: `/api/projects/${id}`, payload: edited })
     expect(res.statusCode).toBe(200)
-    expect(JSON.parse(store.load(id)!.document).name).toBe('Cat Chase 2')
-    expect(store.load(id)!.updatedAt).toBe(5000)
-    expect(store.load(id)!.createdAt).toBe(1000)
+    expect(JSON.parse((await store.load(id))!.document).name).toBe('Cat Chase 2')
+    expect((await store.load(id))!.updatedAt).toBe(5000)
+    expect((await store.load(id))!.createdAt).toBe(1000)
   })
 
   it('404s an unknown id instead of creating one', async () => {
@@ -115,7 +115,7 @@ describe('PUT /api/projects/:id', () => {
       payload: { version: 1, name: 'broken' },
     })
     expect(res.statusCode).toBe(400)
-    expect(JSON.parse(store.load(id)!.document).name).toBe('Cat Chase')
+    expect(JSON.parse((await store.load(id))!.document).name).toBe('Cat Chase')
   })
 })
 
@@ -198,10 +198,10 @@ function fakeDist(): string {
 
 describe('static serving', () => {
   let staticApp: FastifyInstance
-  let staticStore: ProjectStore
+  let staticStore: SqliteProjectStore
 
   beforeEach(() => {
-    staticStore = new ProjectStore(':memory:')
+    staticStore = new SqliteProjectStore(':memory:')
     staticApp = buildApp({ store: staticStore, staticRoot: fakeDist() })
   })
   afterEach(async () => {
