@@ -37,6 +37,19 @@
     }
   ],
 
+  // Per-IP limit on POST /api/projects. docs/TODO.md records unmetered
+  // anonymous creates as a hard pre-deployment blocker; this is that limit.
+  // The period must be 10 or 60 seconds — 10 creates a minute is far above
+  // what a kid does by hand and far below what a script needs to be a
+  // problem. Only creates are limited; saving an existing game never is.
+  "ratelimits": [
+    {
+      "name": "CREATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
   "observability": {
     // Metrics yes, request logs no. A request URL here contains a project id,
     // which is a capability — server/app.ts redacts it from pino output for

@@ -29,6 +29,18 @@ export interface ApiDeps {
    * they already have a link to.
    */
   capacity?: { used(): Promise<number>; limit: number }
+  /**
+   * Per-client limit on creating games. Returns false when this caller has
+   * had enough for now.
+   *
+   * Separate from `capacity`, because they catch different failures: this
+   * stops one machine hammering the endpoint, while capacity catches a slow
+   * fill from many machines that no per-minute limit would ever notice.
+   *
+   * The caller decides what "per client" means — this layer never sees an IP
+   * address, so it stays free of anything Cloudflare-specific.
+   */
+  rateLimit?: () => Promise<boolean>
 }
 
 const notFound = (): ApiResponse => ({
@@ -72,6 +84,16 @@ export async function handleApiRequest(
   deps: ApiDeps,
 ): Promise<ApiResponse | null> {
   if (req.path === '/api/projects' && req.method === 'POST') {
+    // Checked before capacity, which costs a COUNT query: under a flood the
+    // cheap check should be the one that runs.
+    if (deps.rateLimit && !(await deps.rateLimit())) {
+      return {
+        status: 429,
+        body: {
+          error: "You're making new games very quickly! Wait a moment, then try again.",
+        },
+      }
+    }
     if (deps.capacity && (await deps.capacity.used()) >= deps.capacity.limit) {
       return {
         status: 503,
