@@ -14,3 +14,10 @@ playwright-report/
 # AGPL-3.0. Not committed, so this project's own license stays unentangled —
 # see public/library/LICENSE.md.
 public/library/scratch-catalog.json
+
+# Deployment credentials. scripts/deploy.sh reads CLOUDFLARE_API_TOKEN from
+# here. This repository is public: a token committed once is a token someone
+# else deploys with, and rewriting history does not un-leak it.
+.env
+.env.*
+!.env.example
