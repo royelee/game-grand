@@ -1,6 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "game-grand",
+  // The deployed URL is <name>.<account-subdomain>.workers.dev, and the
+  // account subdomain is already "game-grand" — so naming the Worker
+  // "game-grand" too produced game-grand.game-grand.workers.dev.
+  "name": "play",
   "main": "worker/index.ts",
   "compatibility_date": "2026-08-15",
 
