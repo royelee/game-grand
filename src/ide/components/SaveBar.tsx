@@ -21,6 +21,12 @@ export function SaveBar({ state, onRename, onSave, onOpenLoad }: Props) {
 
   return (
     <div className="savebar">
+      {/*
+        Deliberately not a link. Navigating to "/" from here would discard
+        whatever is unsaved, and the logo is the one control a kid is most
+        likely to click by accident.
+      */}
+      <img className="logo" src="/favicon.svg" alt="Game Grand" width={28} height={28} />
       <input
         aria-label="Game name"
         value={state.project.name}
