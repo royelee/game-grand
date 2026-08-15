@@ -5,7 +5,7 @@ PROD_PORT ?= 4173
 
 CATALOG := public/library/scratch-catalog.json
 
-.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev worker-dev
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-all clean server server-dev worker-dev deploy
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -76,6 +76,9 @@ server-dev: node_modules ## Run the server with reload (client must be built)
 worker-dev: build ## Run the Cloudflare Worker locally against a local D1
 	npx wrangler d1 migrations apply game-grand --local
 	npm run worker:dev
+
+deploy: ## Deploy to Cloudflare (needs .env with CLOUDFLARE_API_TOKEN)
+	./scripts/deploy.sh
 
 clean: ## Remove build output and test artifacts
 	rm -rf dist test-results playwright-report

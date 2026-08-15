@@ -275,6 +275,44 @@ knowingly accepted trade-offs.
   `tsconfig.server.json` with `erasableSyntaxOnly`: no enums, no parameter properties, no
   decorators in those directories, because Node strips types rather than compiling them.
 
+## Deploying
+
+Production runs on Cloudflare: the built client on Workers static assets, the three API
+endpoints on a Worker, saved games in D1. The Fastify server in `server/` remains the
+development server — `make server` and `make test-e2e-server` are unchanged.
+
+One-time setup:
+
+```bash
+npx wrangler d1 create game-grand      # paste the printed id into wrangler.jsonc
+npx wrangler d1 migrations apply game-grand --remote
+cp .env.example .env                   # add a token scoped to Workers Scripts + D1 only
+```
+
+Then, from `main` with a clean tree:
+
+```bash
+make deploy
+```
+
+Deploys run from your machine, not CI, so the script is the gate CI would otherwise be: it
+refuses to run off `main`, refuses a dirty tree, and runs the typechecks, unit suite, and
+build before shipping. `.env` is gitignored and must stay that way — this repository is
+public, and a committed token stays leaked whatever the history says afterwards.
+
+To run the real Worker locally against a local D1, with **no Cloudflare account needed**:
+
+```bash
+make worker-dev        # http://localhost:5177
+make test-e2e-worker   # the full e2e suite against it
+```
+
+That mode is the only one covering the `_headers` rules, the `/p/<id>` fallback, and D1.
+It has already earned its keep: Cloudflare's default `html_handling` redirects
+`/runtime.html` to `/runtime`, where the header rules no longer match — dropping the
+`Access-Control-Allow-Origin` the sandboxed stage needs and the `frame-ancestors` that
+protects it. `wrangler.jsonc` sets `html_handling: "none"` for exactly that reason.
+
 ## Licensing
 
 **This repository redistributes nothing from Scratch.** That is a deliberate boundary, and
