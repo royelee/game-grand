@@ -271,8 +271,8 @@ it is why the catalog is generated rather than committed.
 
 | Thing | Where it comes from | License |
 |---|---|---|
-| Everything in `src/`, `server/`, `scripts/`, `e2e/` | Written for this project | See `LICENSE` |
-| The ten starter assets in `public/library/` | Drawn for this project — a few hundred bytes of SVG primitives each | See `LICENSE` |
+| Everything in `src/`, `server/`, `scripts/`, `e2e/` | Written for this project | **[MIT](LICENSE)** |
+| The ten starter assets in `public/library/` | Drawn for this project — a few hundred bytes of SVG primitives each | **[MIT](LICENSE)** |
 | `scratch-catalog.json` | Generated on your machine from [scratch-gui](https://github.com/scratchfoundation/scratch-gui) | **AGPL-3.0**, from the Scratch Foundation |
 | Sprite/backdrop/sound media | Fetched by the browser from `assets.scratch.mit.edu` as a project uses it | **[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)** |
 

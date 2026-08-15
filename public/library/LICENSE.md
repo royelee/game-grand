@@ -1,8 +1,10 @@
 # Library assets
 
 The starter assets in this directory (`cat-a`, `cat-b`, `ball`, `bat`, `star`,
-`blue-sky`, `night`, `beep`, `boop`, `pop`) were authored for this project and
-carry the project's own license. They are bundled with the app and work
+`blue-sky`, `night`, `beep`, `boop`, `pop`) were authored for this project —
+they are a few hundred bytes of SVG primitives each, not traced from anyone
+else's art — and are **MIT licensed**, the same as the rest of the project
+(see `LICENSE` at the repository root). They are bundled with the app and work
 offline.
 
 `scratch-catalog.json` is **generated, not distributed with this repository**
