@@ -30,12 +30,16 @@ jobs:
 
       - run: npm ci
 
-      # Both projects: tsconfig.json covers the client, tsconfig.server.json
-      # covers server/ and scripts/ under erasableSyntaxOnly.
+      # Three projects: tsconfig.json covers the client, tsconfig.server.json
+      # covers server/ and scripts/ under erasableSyntaxOnly, and
+      # worker/tsconfig.json checks the Worker against Cloudflare's types —
+      # which is what catches a node: builtin sneaking into code that has no
+      # Node underneath it.
       - name: Typecheck
         run: |
           npx tsc --noEmit
           npx tsc -p tsconfig.server.json
+          npx tsc -p worker/tsconfig.json
 
       # Deliberately does not generate the Scratch catalog: the unit suite
       # builds from inline fixtures, so this job stays network-free and fast.
