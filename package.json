@@ -28,7 +28,8 @@
     "typecheck:worker": "tsc -p worker/tsconfig.json",
     "typecheck:desktop": "tsc -p desktop/tsconfig.json",
     "desktop:build": "tsc -p desktop/tsconfig.build.json && cp desktop/offline.html desktop/dist/",
-    "desktop": "electron ."
+    "desktop": "electron .",
+    "desktop:dist": "electron-builder --config desktop/electron-builder.yml"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

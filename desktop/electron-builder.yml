@@ -1,0 +1,25 @@
+appId: dev.gamegrand.app
+productName: Game Grand
+directories:
+  output: release
+
+# The app is a shell around a deployed URL: it needs its own compiled main
+# process and nothing else. Without the node_modules exclusion, electron-builder
+# packages every production dependency — react, phaser, monaco, fastify — none
+# of which this process ever imports.
+files:
+  - package.json
+  - desktop/dist/**/*
+  - '!node_modules/**/*'
+
+mac:
+  category: public.app-category.education
+  icon: desktop/icon.icns
+  target:
+    - dmg
+  # Required for notarization.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Overridden to true by `make desktop-dist-signed`, so an unsigned local
+  # build stays possible with no Apple credentials present.
+  notarize: false

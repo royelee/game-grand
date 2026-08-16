@@ -35,3 +35,6 @@ desktop/dist/
 # single source for the crest.
 desktop/icon.icns
 desktop/icon.iconset/
+
+# electron-builder output.
+release/

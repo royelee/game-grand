@@ -5,7 +5,7 @@ PROD_PORT ?= 4173
 
 CATALOG := public/library/scratch-catalog.json
 
-.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy desktop-icon desktop-build desktop-dev
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy desktop-icon desktop-build desktop-dev desktop-dist desktop-dist-signed
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -100,6 +100,16 @@ desktop-build: node_modules desktop/icon.icns ## Compile the Electron main proce
 # local server: GAME_GRAND_URL=http://localhost:$(DEV_PORT) make desktop-dev
 desktop-dev: desktop-build ## Run the Mac app shell
 	npm run desktop
+
+desktop-dist: desktop-build ## Package an unsigned .dmg into release/
+	npm run desktop:dist
+
+# Needs a Developer ID Application certificate plus APPLE_ID,
+# APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID in the environment. Recent
+# macOS removed the Control-click bypass for unnotarized apps, so an unsigned
+# build is only usable on the machine that made it.
+desktop-dist-signed: desktop-build ## Package a signed, notarized .dmg
+	npm run desktop:dist -- --config.mac.notarize=true
 
 clean: ## Remove build output and test artifacts
 	rm -rf dist test-results playwright-report desktop/dist desktop/icon.icns desktop/icon.iconset
