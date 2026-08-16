@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
+  "//main": "Electron's entry point, and how electron-builder finds it. Not published — this package is private.",
+  "main": "desktop/dist/main.js",
   "engines": {
     "node": ">=24"
   },
@@ -23,7 +25,11 @@
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "typecheck:server": "tsc -p tsconfig.server.json",
-    "typecheck:worker": "tsc -p worker/tsconfig.json"
+    "typecheck:worker": "tsc -p worker/tsconfig.json",
+    "typecheck:desktop": "tsc -p desktop/tsconfig.json",
+    "desktop:build": "tsc -p desktop/tsconfig.build.json && cp desktop/offline.html desktop/dist/",
+    "desktop": "electron .",
+    "desktop:dist": "electron-builder --config desktop/electron-builder.yml"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",
@@ -41,6 +47,8 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",
     "vitest": "^2.0.5",

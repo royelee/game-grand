@@ -322,6 +322,41 @@ It has already earned its keep: Cloudflare's default `html_handling` redirects
 `Access-Control-Allow-Origin` the sandboxed stage needs and the `frame-ancestors` that
 protects it. `wrangler.jsonc` sets `html_handling: "none"` for exactly that reason.
 
+## Desktop app
+
+`desktop/` is an Electron shell that opens the deployed playground in its own window. It
+bundles no client and runs no server — it points at the Worker, so a `make deploy` updates
+every installed copy.
+
+```bash
+make desktop-dev     # run the shell against the deployed URL
+make desktop-dist    # package an unsigned .dmg into release/
+```
+
+`GAME_GRAND_URL` aims it somewhere else — `GAME_GRAND_URL=http://localhost:5173 make
+desktop-dev` develops against `make dev`.
+
+It cannot load the client from disk. The stage runs in `<iframe sandbox="allow-scripts">`,
+which gives it an opaque origin, and module scripts are always fetched in CORS mode — off
+`file://` there is no origin to send `Access-Control-Allow-Origin: *` from, so the stage
+stays silently blank. The desktop app speaks `https://` for the same reason the Worker sets
+`_headers`.
+
+**Handing it to someone else needs signing.** Recent macOS removed the Control-click → Open
+bypass for unnotarized apps, and AirDrop sets the quarantine flag too, so an unsigned build
+is realistically only usable on the machine that made it. With a Developer ID Application
+certificate and `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` in the
+environment:
+
+```bash
+make desktop-dist-signed
+```
+
+**One caveat before giving this to a classroom**, recorded in [`docs/TODO.md`](docs/TODO.md):
+there are no accounts, so `/p/<id>` in the address bar is the entire ownership model. A
+browser keeps that link in history and bookmarks; this window has neither, so a kid who
+closes it has lost that game. A native Games menu is designed and deferred.
+
 ## Licensing
 
 **This repository redistributes nothing from Scratch.** That is a deliberate boundary, and

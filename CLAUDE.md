@@ -13,6 +13,8 @@ A web playground where kids write JavaScript instead of dragging Scratch blocks:
 ```bash
 make dev              # Vite dev server on :5173
 make server-dev       # Fastify API on :8080 — needed for Save/Load; run in a second shell
+make desktop-dev      # Electron shell on the deployed URL; GAME_GRAND_URL overrides it
+make desktop-dist     # package an unsigned .dmg into release/
 make build            # tsc --noEmit + tsc -p tsconfig.server.json + vite build
 make test-unit        # vitest run (~320 tests, sub-second)
 make test-e2e         # Playwright against the dev server
@@ -44,6 +46,7 @@ Three entry points, one shared vocabulary:
 | `index.html` → `src/main.tsx` | `src/ide/**` | The React IDE shell |
 | `runtime.html` → `src/runtime-host/main.ts` | `src/runtime-host/**` + `src/runtime/**` | Phaser + user code, inside a sandboxed iframe |
 | `server/index.ts` | `server/**` | Fastify + SQLite, also serves `dist/` |
+| `desktop/main.ts` | `desktop/**` | The Electron shell around the deployed URL |
 
 **The iframe boundary is the central design fact.** User code never runs in the IDE's realm. Run serializes the project into a `RunPayload` and posts it to a freshly-mounted `<iframe sandbox="allow-scripts" src="/runtime.html">`; Stop unmounts the iframe. That gives beginners a `while (true)` they can always escape from, and makes every Run a clean-slate restart like Scratch's green flag. Consequences that are easy to break:
 
@@ -61,6 +64,7 @@ Three entry points, one shared vocabulary:
 - `src/runtime-host/` — the Phaser adapter. `session.ts` builds a `World` from a payload and drives it; `scene.ts` renders snapshots; `spriteViews.ts`/`textureKeys.ts` reconcile. Sprites reconcile by the stable `id` field, never by name (clones share names) and never by array position (`world.sprites` is *reassigned* by layer/clone ops — always re-read it, never cache).
 - `src/ide/` — React shell. `store.ts` is a reducer holding all IDE state; `bridge.ts` is the parent half of the iframe protocol; `library.ts`/`scratchAssets.ts`/`upload.ts`/`rehydrate.ts` handle assets; `api.ts` talks to the server.
 - `server/` — `app.ts` (wiring, error handler, log redaction), `routes.ts` (3 endpoints), `db.ts` (SQLite via `node:sqlite`, documents stored as opaque JSON strings), `static.ts`, `ids.ts`.
+- `desktop/` — the Electron shell. It bundles no client and runs no server: it opens the deployed Worker URL in a `BrowserWindow`. `urlPolicy.ts` decides what stays in the window versus what goes to the real browser, `loadFailure.ts` decides which `did-fail-load` events deserve `offline.html`; `main.ts` is wiring around those two. It is the one directory that **emits** JavaScript (`desktop/tsconfig.build.json` → `desktop/dist/`), because Electron runs its own bundled Node and cannot be assumed to strip types — so relative imports there carry `.js` extensions, not `.ts`. It cannot load the client from `file://`: the sandboxed stage needs an origin that can send `Access-Control-Allow-Origin: *`, which is the same constraint `server/static.ts` and `public/_headers` exist for.
 
 ### The API surface has one source of truth
 

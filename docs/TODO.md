@@ -21,6 +21,15 @@ Items intentionally left out of v1, to follow up later.
 - [ ] The `projects` table has no index on `updated_at`, so any future "recently updated" view would table-scan.
 - [ ] `html_handling: "none"` is load-bearing and easy to remove by accident. Cloudflare's default 307s `/runtime.html` to `/runtime`, where the `_headers` rules no longer match, dropping both `Access-Control-Allow-Origin` and `frame-ancestors` — a blank stage and a lost security header. `e2e/worker.spec.ts` asserts the headers on `/runtime.html`, which is what would catch its removal.
 
+## Mac desktop app follow-ups
+
+- [ ] **A closed window can lose a game forever — do not hand this build to a classroom yet.** There are no accounts: a project id *is* the capability, and `/p/<id>` in the address bar is the whole ownership model. A browser keeps that link in history, bookmarks and autocomplete; the desktop window has none of those and no address bar to copy from. The fix is a native Games menu backed by ids recorded to Electron's `userData` as the user navigates, plus "Copy link to this game". Designed and deliberately deferred in `docs/superpowers/specs/2026-08-15-mac-desktop-app-design.md`.
+- [ ] The app is pinned to whatever is deployed. Shipping no client bundle means a Cloudflare deploy updates every installed copy for free — and equally that a bad deploy breaks every installed copy, with no way to pin or roll back locally.
+- [ ] No auto-update. Changing the shell itself (the offline page, the navigation policy) means redistributing the `.dmg` by hand. `electron-updater` would fix it and needs a hosting decision.
+- [ ] No Electron e2e mode. `desktop/urlPolicy.ts` and `desktop/loadFailure.ts` are unit-tested, but nothing automatically verifies that the packaged app opens a window, loads the URL and renders a stage. Playwright's `_electron.launch()` does exactly this — it was used by hand to verify the implementation — at the cost of a fifth e2e mode with its own dependency on something being served.
+- [ ] Window bounds are not remembered between launches.
+- [ ] The desktop title bar is the macOS default rather than `hiddenInset`, because the traffic lights would land on the IDE's own top bar. Making it native means desktop-conditional padding inside `src/`, which the desktop work deliberately avoided.
+
 ## Plan 2 contract notes (from Plan 1 final review)
 
 - **One run = one fresh `World` + `Executor`.** `Executor.run()` has no teardown; calling it twice on the same World double-registers every handler and watch. The iframe-restart-per-Run design guarantees this naturally — do not reuse a World across runs.

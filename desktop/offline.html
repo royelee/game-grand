@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Game Grand</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    place-items: center;
+    background: #12192C;
+    color: #F4F1E8;
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    text-align: center;
+    -webkit-user-select: none;
+  }
+  main { max-width: 30rem; padding: 2rem; }
+  h1 { font-size: 1.75rem; margin: 0 0 0.75rem; color: #F7C433; }
+  p { margin: 0 0 1.75rem; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    color: #12192C;
+    background: #F7C433;
+    border: 0;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.6rem;
+    cursor: pointer;
+  }
+  button:hover { background: #FFE885; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>I can't find your games</h1>
+    <p>
+      This app needs the internet to open your games. Check that you're
+      connected, then have another go.
+    </p>
+    <button id="retry" type="button">Try again</button>
+  </main>
+  <script>
+    // main.ts passes the app URL in the query string. There is no preload and
+    // no IPC here on purpose: a plain same-origin navigation is all a retry
+    // needs, and it keeps this window free of any privileged bridge.
+    const target = new URLSearchParams(location.search).get('url')
+    document.getElementById('retry').addEventListener('click', () => {
+      if (target) location.href = target
+    })
+  </script>
+</body>
+</html>
