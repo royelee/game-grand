@@ -5,7 +5,7 @@ PROD_PORT ?= 4173
 
 CATALOG := public/library/scratch-catalog.json
 
-.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy desktop-build desktop-dev
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -85,5 +85,13 @@ worker-dev: build ## Run the Cloudflare Worker locally against a local D1
 deploy: ## Deploy to Cloudflare (needs .env with CLOUDFLARE_API_TOKEN)
 	./scripts/deploy.sh
 
+desktop-build: node_modules ## Compile the Electron main process to desktop/dist/
+	npm run desktop:build
+
+# Points at the deployed Worker by default. Override to develop against a
+# local server: GAME_GRAND_URL=http://localhost:$(DEV_PORT) make desktop-dev
+desktop-dev: desktop-build ## Run the Mac app shell
+	npm run desktop
+
 clean: ## Remove build output and test artifacts
-	rm -rf dist test-results playwright-report
+	rm -rf dist test-results playwright-report desktop/dist
