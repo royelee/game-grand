@@ -5,7 +5,7 @@ PROD_PORT ?= 4173
 
 CATALOG := public/library/scratch-catalog.json
 
-.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy desktop-build desktop-dev
+.PHONY: help install catalog build dev prod test test-unit test-e2e test-e2e-prod test-e2e-server test-e2e-worker test-all clean server server-dev worker-dev deploy desktop-icon desktop-build desktop-dev
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -85,7 +85,15 @@ worker-dev: build ## Run the Cloudflare Worker locally against a local D1
 deploy: ## Deploy to Cloudflare (needs .env with CLOUDFLARE_API_TOKEN)
 	./scripts/deploy.sh
 
-desktop-build: node_modules ## Compile the Electron main process to desktop/dist/
+# Generated, never committed — public/favicon.svg is the single source. Needs
+# Playwright's chromium (`npx playwright install chromium`); sips and iconutil
+# ship with macOS.
+desktop/icon.icns: public/favicon.svg scripts/build-desktop-icon.ts | node_modules
+	node scripts/build-desktop-icon.ts
+
+desktop-icon: desktop/icon.icns ## Generate the Mac app icon from public/favicon.svg
+
+desktop-build: node_modules desktop/icon.icns ## Compile the Electron main process to desktop/dist/
 	npm run desktop:build
 
 # Points at the deployed Worker by default. Override to develop against a
@@ -94,4 +102,4 @@ desktop-dev: desktop-build ## Run the Mac app shell
 	npm run desktop
 
 clean: ## Remove build output and test artifacts
-	rm -rf dist test-results playwright-report desktop/dist
+	rm -rf dist test-results playwright-report desktop/dist desktop/icon.icns desktop/icon.iconset
