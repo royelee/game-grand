@@ -23,7 +23,8 @@
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "typecheck:server": "tsc -p tsconfig.server.json",
-    "typecheck:worker": "tsc -p worker/tsconfig.json"
+    "typecheck:worker": "tsc -p worker/tsconfig.json",
+    "typecheck:desktop": "tsc -p desktop/tsconfig.json"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",
