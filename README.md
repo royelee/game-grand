@@ -32,6 +32,8 @@ onKeyPress('space', () => eraseAll())
 The playground is live at **<https://play.game-grand.workers.dev>** — nothing to install,
 no account to create, no sign-up form between a kid and their first sprite.
 
+[![The playground: stage on the left, Monaco editor and API reference on the right](docs/images/playground.png)](https://play.game-grand.workers.dev)
+
 Open it and you can:
 
 - **Write real JavaScript** in a Monaco editor with autocomplete and a built-in API
@@ -45,6 +47,8 @@ Open it and you can:
 To see how far that goes, here is **Tetris, built entirely in the playground**:
 
 **[▶ Play Tetris](https://play.game-grand.workers.dev/p/_D-E0iDePShQ2kbdNcqy9Q)**
+
+[![Tetris running on the stage, with its source code open in the editor](docs/images/tetris.png)](https://play.game-grand.workers.dev/p/_D-E0iDePShQ2kbdNcqy9Q)
 
 Press Run, play it — then open the code tabs and change the rules. The whole game is
 right there. (Fair warning: the link *is* the ownership model, so every visitor can edit
