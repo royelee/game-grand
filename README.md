@@ -27,6 +27,34 @@ onUpdate(() => {
 onKeyPress('space', () => eraseAll())
 ```
 
+## Try it
+
+The playground is live at **<https://play.game-grand.workers.dev>** — nothing to install,
+no account to create, no sign-up form between a kid and their first sprite.
+
+[![The playground: stage on the left, Monaco editor and API reference on the right](docs/images/playground.png)](https://play.game-grand.workers.dev)
+
+Open it and you can:
+
+- **Write real JavaScript** in a Monaco editor with autocomplete and a built-in API
+  reference — the whole Scratch vocabulary (`move`, `glide`, `say`, `clone`,
+  `broadcast`…) as actual code.
+- **Press ▶ Run** and watch the stage come alive — and press ■ Stop to escape anything,
+  even a `while (true)`.
+- **Pick from hundreds of Scratch sprites, backdrops, and sounds**, or upload your own.
+- **Save with one click** and get a secret link that reopens the game anywhere.
+
+To see how far that goes, here is **Tetris, built entirely in the playground**:
+
+**[▶ Play Tetris](https://play.game-grand.workers.dev/p/_D-E0iDePShQ2kbdNcqy9Q)**
+
+[![Tetris running on the stage, with its source code open in the editor](docs/images/tetris.png)](https://play.game-grand.workers.dev/p/_D-E0iDePShQ2kbdNcqy9Q)
+
+Press Run, play it — then open the code tabs and change the rules. The whole game is
+right there. (Fair warning: the link *is* the ownership model, so every visitor can edit
+it. If Tetris has become something stranger by the time you arrive, someone got there
+first — that's part of the fun.)
+
 ## Why it looks like this
 
 The audience is beginners, so every design choice favors forgiveness and clarity over
